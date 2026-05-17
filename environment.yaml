@@ -1,7 +1,7 @@
 name: graph_strat_env
 channels:
-  - https://repo.anaconda.com/pkgs/main
-  - https://repo.anaconda.com/pkgs/r
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.10
   - scipy
@@ -14,5 +14,7 @@ dependencies:
   - pandas
   - seaborn
   - powerlaw
-  - deap
-prefix: /Users/jonas/miniconda3/envs/graph_strat_env
+  - pip:
+      - deap==1.4.4
+      - torch==2.11.0
+      - torch-geometric==2.7.0
