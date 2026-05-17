@@ -1,0 +1,18 @@
+name: graph_strat_env
+channels:
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+dependencies:
+  - python=3.10
+  - scipy
+  - tabulate
+  - hydra-core
+  - pyyaml
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - pandas
+  - seaborn
+  - powerlaw
+  - deap
+prefix: /Users/jonas/miniconda3/envs/graph_strat_env

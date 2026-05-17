@@ -4,3 +4,4 @@ from .graphSAGE import SAGENet
 from .mixhop import MixHopNet
 from .mlp import MLPNet
 from .appnp import APPNPNet
+from .gprgnn import GPRGNN
