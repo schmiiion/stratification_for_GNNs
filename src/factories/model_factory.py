@@ -12,6 +12,8 @@ def get_models(cfg, input_dim, output_dim):
         "GAT": models.GATNet,
         "SAGE": models.SAGENet,
         "MixHop": models.MixHopNet,
+        "GPRGNN": models.GPRGNN,
+        "H2GCN": models.H2GCN_2
     }
 
     selected_models = []

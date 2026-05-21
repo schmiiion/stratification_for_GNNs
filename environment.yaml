@@ -1,4 +1,4 @@
-name: graph_strat_env
+name: graph_stratification
 channels:
   - conda-forge
   - defaults

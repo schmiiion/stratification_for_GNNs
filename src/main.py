@@ -25,12 +25,15 @@ def logger_process(queue, run_csv_filename):
         if record == 'KILL':
             break
 
-        with open(run_csv_filename, mode='a', newline='') as file:
+        with open(f"{run_csv_filename}", mode='a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(record)
 
 
-def worker_task(dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg, data, input_dim, output_dim, log_queue):
+def worker_task(
+        dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg,
+        data, adj_hop1, adj_hop2, input_dim, output_dim, log_queue):
+
     torch.set_num_threads(1)
     device = torch.device('cpu')
 
@@ -43,11 +46,21 @@ def worker_task(dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cf
 
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
+    if model_name == "H2GCN":
+        model_x = data.h2gcn_x
+        model_adj = {"adj1_hop": adj_hop1, "adj2_hop": adj_hop2}
+    elif model_name == "GPRGNN":
+        model_x = data.x
+        model_adj = {"edge_idx": data.edge_index}
+    else:
+        model_x = data.x
+        model_adj = data.edge_index
+
     # --- TRAINING LOOP ---
     for epoch in range(cfg.max_epochs):
         model.train()
         optimizer.zero_grad()
-        out = model(data.x, data.edge_index)
+        out = model(model_x, model_adj)
         loss = F.nll_loss(out[fold["train_mask"]], data.y[fold["train_mask"]])
         loss.backward()
         optimizer.step()
@@ -57,7 +70,7 @@ def worker_task(dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cf
             model.eval()
 
             with torch.no_grad():
-                logits = model(data.x, data.edge_index)
+                logits = model(model_x, model_adj)
                 preds = logits[fold["test_mask"]].argmax(dim=1)
                 acc = (preds == data.y[fold["test_mask"]]).sum().item() / fold["test_mask"].sum().item()
 
@@ -67,7 +80,7 @@ def worker_task(dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cf
                 [dataset_id, "ClassBasedStratification", fold_seed, fold_idx + 1, model_name, init_seed, epoch + 1,
                  acc])
 
-    return f"Finished {dataset_id} | {model_name} | Fold {fold_idx + 1} | Seed {init_seed}"
+    return f"Finished {dataset_id} | {model_name} | Foldseed {fold_seed} | Fold {fold_idx + 1} | Initseed {init_seed}"
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -87,7 +100,7 @@ def main(cfg: DictConfig):
 
     with open(cfg.fold_stats_csv_filename, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Dataset", "Stratification_Type", "Fold_Seed", "Fold", "Property", "EMD", "KS_Stat"])
+        writer.writerow(["Dataset", "StratificationType", "Fold_Seed", "Fold", "Property", "EMD", "KS_Stat"])
 
     # --- 1. Setup the Queue and Central Logger ---
     manager = multiprocessing.Manager()
@@ -97,14 +110,19 @@ def main(cfg: DictConfig):
     logger = multiprocessing.Process(target=logger_process, args=(log_queue, cfg.run_csv_filename))
     logger.start()
 
-    num_workers = max(1, multiprocessing.cpu_count() - 2)
+    # num_workers = max(1, multiprocessing.cpu_count() - 2)
+    num_workers = 4
     print(f"Starting ProcessPoolExecutor with {num_workers} workers.")
 
     # DATASET LOOP
     for dataset_id in cfg.datasets:
         print(f"\n{'=' * 40}\nDATASET: {dataset_id}\n{'=' * 40}")
 
-        dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(name=dataset_id, device='cpu')
+        dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(name=dataset_id)
+        adj_hop1, adj_hop2 = None, None
+        if "H2GCN" in cfg.model_names:
+            data.h2gcn_x = DatasetFactory.row_normalize_features(data.x)
+            adj_hop1, adj_hop2 = DatasetFactory.precompute_h2gcn_hops(data.edge_index, data.num_nodes)
 
         for fold_seed in cfg.fold_seeds:
             stratifier = LabelStratifiedKFold(cfg=cfg, dataset_name=dataset_id, n_splits=cfg.num_folds, seed=fold_seed)
@@ -116,8 +134,8 @@ def main(cfg: DictConfig):
                 for model_name in cfg.model_names:
                     for init_seed in cfg.init_seeds:
                         tasks.append(
-                            (dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg, data, input_dim,
-                             output_dim, log_queue)
+                            (dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg, data,
+                             adj_hop1, adj_hop2, input_dim, output_dim, log_queue)
                         )
 
             # 3. Execute tasks
@@ -129,6 +147,7 @@ def main(cfg: DictConfig):
                         print(future.result())
                     except Exception as exc:
                         print(f"A worker generated an exception: {exc}")
+                        raise exc
 
         del dataset, data
 

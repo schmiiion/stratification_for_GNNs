@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def plot_dataset_results(csv_filename="gnn_benchmark_results_full.csv"):
+def plot_dataset_results(csv_filename="logs/20260517_143150_StratifiedSamplingBaseline.csv"):
     # 1. Load Data
     try:
         df = pd.read_csv(csv_filename, on_bad_lines='skip')
@@ -14,7 +14,7 @@ def plot_dataset_results(csv_filename="gnn_benchmark_results_full.csv"):
     # --- Dataset Filtering Logic ---
     AVG_OVER_DSs = False
     all_datasets = ["Cora", "CiteSeer",] # "PubMed"]
-    single_dataset = 'PubMed'
+    single_dataset = 'Cora'
 
     if AVG_OVER_DSs:
         df = df[df['Dataset'].isin(all_datasets)]
@@ -23,26 +23,13 @@ def plot_dataset_results(csv_filename="gnn_benchmark_results_full.csv"):
         df = df[df['Dataset'] == single_dataset]
         title_context = f"{single_dataset} Dataset"
 
-    # --- Split Filtering Logic ---
-    USE_ALL_SPLITS = False
-    target_splits_list = [[0.6, 0.2, 0.2], [0.5, 0.3, 0.2], [0.1, 0.2, 0.3]]
-    target_splits_list = [[0.6, 0.2, 0.2], [0.5, 0.3, 0.2]] #[0.1, 0.2, 0.3]]
-
-    if not USE_ALL_SPLITS:
-        formatted_splits = ["-".join(map(str, s)) for s in target_splits_list]
-        df = df[df['Split_Ratio'].isin(formatted_splits)]
-        split_context = f"Splits: {', '.join(formatted_splits)}"
-    else:
-        split_context = "All Available Splits"
-
-    title_context += f" | {split_context}"
 
     if df.empty:
         print(f"No data found for the specified configuration.")
         return
 
     # 2. Calculate AGGREGATED Statistics
-    stats_aggregated = df.groupby(['Split_Ratio'])['Test_Accuracy'].agg(
+    stats_aggregated = df.groupby["Model"]['Test_Accuracy'].agg(
         Samples='count',
         Mean='mean',
         Std_Dev='std',
