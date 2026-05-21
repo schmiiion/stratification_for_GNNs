@@ -2,36 +2,23 @@ import torch
 import torch.nn.functional as F
 from factories.dataset_factory import DatasetFactory
 from factories.model_factory import get_models
+from factories.stratifier_factory import get_stratifiers
 import hydra
 from omegaconf import DictConfig
-import csv
-import os
-from datetime import datetime
 import numpy as np
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from stratify.baseclass_and_naive import LabelStratifiedKFold
-
-def add_timestamp_to_path(filepath, ts):
-    directory, filename = os.path.split(filepath)
-    new_filename = f"{ts}_{filename}"
-    return os.path.join(directory, new_filename)
-
-def logger_process(queue, run_csv_filename):
-    """Process running in the background. It listens to the queue and writes incoming data to the csv one row at a time."""
-    while True:
-        record = queue.get()
-        if record == 'KILL':
-            break
-
-        with open(f"{run_csv_filename}", mode='a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(record)
+from utils.csv_logger import CsvLogger
+from utils.training_utils import (
+    clone_state_dict,
+    evaluate_mask,
+    run_metrics_writer_process,
+)
 
 
 def worker_task(
-        dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg,
+        dataset_id, stratification_name, fold_idx, fold, fold_seed, model_name, init_seed, cfg,
         data, adj_hop1, adj_hop2, input_dim, output_dim, log_queue):
 
     torch.set_num_threads(1)
@@ -40,24 +27,30 @@ def worker_task(
     torch.manual_seed(init_seed)
     np.random.seed(init_seed)
 
-    all_models = get_models(cfg, input_dim, output_dim)
-    model = next(m for name, m in all_models if name == model_name)
-    model = model.to(device)
+    model = get_models(cfg, input_dim, output_dim, model_name).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
-    if model_name == "H2GCN":
-        model_x = data.h2gcn_x
-        model_adj = {"adj1_hop": adj_hop1, "adj2_hop": adj_hop2}
-    elif model_name == "GPRGNN":
-        model_x = data.x
-        model_adj = {"edge_idx": data.edge_index}
-    else:
-        model_x = data.x
-        model_adj = data.edge_index
+    model_x = data.h2gcn_x if model_name == "H2GCN" else data.x
+    model_adj = {
+        "edge_idx": data.edge_index,
+        "adj1_hop": adj_hop1,
+        "adj2_hop": adj_hop2,
+    }
+
+    max_epochs = int(cfg.max_epochs)
+    early_stopping_patience = int(cfg.get("early_stopping_patience", 100))
+
+    best_state = None
+    best_epoch = 0
+    best_val_loss = float("inf")
+    best_val_acc = float("-inf")
+    epochs_without_improvement = 0
+    stopped_epoch = max_epochs
+    stopped_early = False
 
     # --- TRAINING LOOP ---
-    for epoch in range(cfg.max_epochs):
+    for epoch in range(1, max_epochs + 1):
         model.train()
         optimizer.zero_grad()
         out = model(model_x, model_adj)
@@ -65,53 +58,78 @@ def worker_task(
         loss.backward()
         optimizer.step()
 
-        # --- EVALUATION ---
-        if (epoch + 1) % cfg.test_all_n == 0 or epoch == cfg.max_epochs - 1:
-            model.eval()
+        model.eval()
+        with torch.no_grad():
+            logits = model(model_x, model_adj)
+            val_loss, val_acc = evaluate_mask(logits, data.y, fold["val_mask"])
 
-            with torch.no_grad():
-                logits = model(model_x, model_adj)
-                preds = logits[fold["test_mask"]].argmax(dim=1)
-                acc = (preds == data.y[fold["test_mask"]]).sum().item() / fold["test_mask"].sum().item()
+        if val_loss < best_val_loss:
+            best_epoch = epoch
+            best_val_loss = val_loss
+            best_val_acc = val_acc
+            best_state = clone_state_dict(model)
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
 
-            # --- FIRE AND FORGET LOGGING ---
-            # Send the data to the central logger instantly
-            log_queue.put(
-                [dataset_id, "ClassBasedStratification", fold_seed, fold_idx + 1, model_name, init_seed, epoch + 1,
-                 acc])
+        if early_stopping_patience > 0 and epochs_without_improvement >= early_stopping_patience:
+            stopped_epoch = epoch
+            stopped_early = True
+            break
 
-    return f"Finished {dataset_id} | {model_name} | Foldseed {fold_seed} | Fold {fold_idx + 1} | Initseed {init_seed}"
+    # --- EVALUATION ---
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    model.eval()
+    with torch.no_grad():
+        logits = model(model_x, model_adj)
+        test_loss, test_acc = evaluate_mask(logits, data.y, fold["test_mask"])
+
+    # --- FIRE AND FORGET LOGGING ---
+    # Send the data to the central logger instantly
+    log_queue.put(
+        [
+            dataset_id,
+            stratification_name,
+            fold_seed,
+            fold_idx + 1,
+            model_name,
+            init_seed,
+            stopped_epoch,
+            best_epoch,
+            best_val_loss,
+            best_val_acc,
+            test_loss,
+            test_acc,
+            stopped_early,
+            early_stopping_patience,
+        ])
+
+    return (
+        f"Finished {dataset_id} | {stratification_name} | {model_name} | "
+        f"Foldseed {fold_seed} | Fold {fold_idx + 1} | Initseed {init_seed} | "
+        f"Best epoch {best_epoch} | Test acc {test_acc:.4f}"
+    )
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    cfg.run_csv_filename = add_timestamp_to_path(cfg.run_csv_filename, timestamp)
-    cfg.fold_stats_csv_filename = add_timestamp_to_path(cfg.fold_stats_csv_filename, timestamp)
-
-    os.makedirs(os.path.dirname(cfg.run_csv_filename), exist_ok=True)
-    os.makedirs(os.path.dirname(cfg.fold_stats_csv_filename), exist_ok=True)
-
-    with open(cfg.run_csv_filename, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(
-            ["Dataset", "StratificationType", "Fold_Seed", "Fold", "Model", "Init_Seed", "Epoch", "Test_Accuracy"])
-
-    with open(cfg.fold_stats_csv_filename, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Dataset", "StratificationType", "Fold_Seed", "Fold", "Property", "EMD", "KS_Stat"])
+    CsvLogger(cfg).initialize()
 
     # --- 1. Setup the Queue and Central Logger ---
     manager = multiprocessing.Manager()
     log_queue = manager.Queue()
 
     # Start the logger as a background process
-    logger = multiprocessing.Process(target=logger_process, args=(log_queue, cfg.run_csv_filename))
-    logger.start()
+    metrics_writer = multiprocessing.Process(
+        target=run_metrics_writer_process,
+        args=(log_queue, cfg.run_csv_filename),
+    )
+    metrics_writer.start()
 
     # num_workers = max(1, multiprocessing.cpu_count() - 2)
-    num_workers = 4
+    num_workers = int(cfg.get("num_workers", 4))
     print(f"Starting ProcessPoolExecutor with {num_workers} workers.")
 
     # DATASET LOOP
@@ -125,36 +143,52 @@ def main(cfg: DictConfig):
             adj_hop1, adj_hop2 = DatasetFactory.precompute_h2gcn_hops(data.edge_index, data.num_nodes)
 
         for fold_seed in cfg.fold_seeds:
-            stratifier = LabelStratifiedKFold(cfg=cfg, dataset_name=dataset_id, n_splits=cfg.num_folds, seed=fold_seed)
-            folds = stratifier.get_folds(data)
+            stratifiers = get_stratifiers(cfg=cfg, dataset_name=dataset_id, seed=fold_seed)
+            for stratifier in stratifiers:
+                folds = stratifier.get_folds(data)
+                stratification_name = stratifier.__class__.__name__
 
-            # 2. Build tasks
-            tasks = []
-            for fold_idx, fold in enumerate(folds):
-                for model_name in cfg.model_names:
-                    for init_seed in cfg.init_seeds:
-                        tasks.append(
-                            (dataset_id, fold_idx, fold, fold_seed, model_name, init_seed, cfg, data,
-                             adj_hop1, adj_hop2, input_dim, output_dim, log_queue)
-                        )
+                # 2. Build tasks
+                tasks = []
+                for fold_idx, fold in enumerate(folds):
+                    for model_name in cfg.model_names:
+                        for init_seed in cfg.init_seeds:
+                            tasks.append(
+                                (
+                                    dataset_id,
+                                    stratification_name,
+                                    fold_idx,
+                                    fold,
+                                    fold_seed,
+                                    model_name,
+                                    init_seed,
+                                    cfg,
+                                    data,
+                                    adj_hop1,
+                                    adj_hop2,
+                                    input_dim,
+                                    output_dim,
+                                    log_queue,
+                                )
+                            )
 
-            # 3. Execute tasks
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = [executor.submit(worker_task, *args) for args in tasks]
+                # 3. Execute tasks
+                with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                    futures = [executor.submit(worker_task, *args) for args in tasks]
 
-                for future in as_completed(futures):
-                    try:
-                        print(future.result())
-                    except Exception as exc:
-                        print(f"A worker generated an exception: {exc}")
-                        raise exc
+                    for future in as_completed(futures):
+                        try:
+                            print(future.result())
+                        except Exception as exc:
+                            print(f"A worker generated an exception: {exc}")
+                            raise exc
 
         del dataset, data
 
     # --- 4. Clean Shutdown ---
     # Once all loops and executors are finished, tell the logger to stop.
     log_queue.put("KILL")
-    logger.join()  # Wait for the logger to finish writing its final queue items
+    metrics_writer.join()
 
 
 if __name__ == "__main__":

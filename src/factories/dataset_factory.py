@@ -1,8 +1,17 @@
 import torch
+from pathlib import Path
+from types import SimpleNamespace
 from torch_geometric.datasets import Planetoid, Amazon, WikipediaNetwork, Actor
+from torch_geometric.data import Data
 import numpy as np
 import scipy.sparse as sp
-from torch_geometric.utils import to_scipy_sparse_matrix
+from torch_geometric.utils import (
+    contains_self_loops,
+    is_undirected,
+    remove_self_loops,
+    to_scipy_sparse_matrix,
+    to_undirected,
+)
 
 class DatasetFactory:
     """
@@ -16,14 +25,30 @@ class DatasetFactory:
         "PubMed": Planetoid,
         "Computers": Amazon,
         "Photo": Amazon,
+        "crocodile": WikipediaNetwork,
         "chameleon": WikipediaNetwork,
         "squirrel": WikipediaNetwork,
-        "crocodile": WikipediaNetwork,
-        "Actor": Actor
     }
 
+    _HETEROPHILOUS_DATASET_FILES = {                        #these are from the platonov paper
+        "chameleon_filtered": Path("chameleon_clean/chameleon_filtered.npz"),
+        "squirrel_filtered": Path("squirrel_filtered/squirrel_filtered.npz"),
+        "texas": Path("texas/texas.npz"),
+        "roman_empire": Path("roman_empire/roman_empire.npz"),
+        "wisconsin": Path("wisconsin/wisconsin.npz"),
+        "actor": Path("Actor/actor.npz"),
+    }
+
+    _DEFAULT_HETEROPHILOUS_ROOT = (
+        Path(__file__).resolve().parents[1] / "data"
+    )
+
     @classmethod
-    def get_dataset(cls, name: str, root_dir: str = '/tmp/'):
+    def get_dataset(
+            cls,
+            name: str,
+            root_dir: str = '/tmp/',
+            heterophilous_root_dir: str | Path | None = None):
         """
         Instantiates and returns the dataset and its properties.
 
@@ -34,8 +59,17 @@ class DatasetFactory:
         Returns:
             tuple: (dataset, input_dim, output_dim, data)
         """
+        heterophilous_name = cls._canonical_heterophilous_name(name)
+        if name not in cls._REGISTRY and heterophilous_name in cls._HETEROPHILOUS_DATASET_FILES:
+            return cls.load_heterophilous_graph_dataset(
+                name=heterophilous_name,
+                root_dir=heterophilous_root_dir,
+            )
+
         if name not in cls._REGISTRY:
-            supported = ", ".join(cls._REGISTRY.keys())
+            supported = ", ".join(
+                sorted([*cls._REGISTRY.keys(), *cls._HETEROPHILOUS_DATASET_FILES.keys()])
+            )
             raise ValueError(f"Dataset '{name}' not recognized. Supported datasets: {supported}")
 
         DatasetClass = cls._REGISTRY[name]
@@ -51,18 +85,105 @@ class DatasetFactory:
         input_dim = dataset.num_features
         output_dim = dataset.num_classes
         data = dataset[0]
+        data.edge_index = cls.standardize_paper_edge_index(
+            data.edge_index,
+            num_nodes=data.num_nodes,
+        )
 
         print(f"Nodes: {data.num_nodes}")
         print(f"Edges: {data.num_edges}")
         print(f"Features: {input_dim}")
         print(f"Classes: {output_dim}")
 
-        edge_index = data.edge_index
-        edges = set(map(tuple, edge_index.t().tolist()))
-        num_missing_reverse = sum((v, u) not in edges for u, v in edges)
-        print("Missing reverse edges:", num_missing_reverse)
+        cls.validate_edge_index_topology(data.edge_index, data.num_nodes)
 
         return dataset, input_dim, output_dim, data
+
+    @classmethod
+    def load_heterophilous_graph_dataset(
+            cls,
+            name: str,
+            root_dir: str | Path | None = None):
+        """
+        Load .npz datasets from the heterophilous-graphs repository as PyG Data.
+
+        The source files store undirected graphs with each edge listed once.
+        PyG represents message-passing topology as directed COO edges, so we
+        materialize both directions with to_undirected().
+        """
+        root = Path(root_dir) if root_dir is not None else cls._DEFAULT_HETEROPHILOUS_ROOT
+        canonical_name = cls._canonical_heterophilous_name(name)
+        relative_path = cls._HETEROPHILOUS_DATASET_FILES[canonical_name]
+        data_path = root / relative_path
+        if not data_path.exists():
+            raise FileNotFoundError(
+                f"Could not find heterophilous dataset '{name}' at {data_path}"
+            )
+
+        with np.load(data_path) as raw:
+            x = torch.from_numpy(raw["node_features"]).to(torch.float32)
+            y = torch.from_numpy(raw["node_labels"]).to(torch.long)
+            edges = torch.from_numpy(raw["edges"]).to(torch.long)
+
+        edge_index = edges.t().contiguous()
+        edge_index = cls.standardize_paper_edge_index(
+            edge_index,
+            num_nodes=x.size(0),
+        )
+
+        data = Data(x=x, y=y, edge_index=edge_index, num_nodes=x.size(0))
+
+        input_dim = data.num_features
+        output_dim = int(y.max().item()) + 1
+        dataset = SimpleNamespace(
+            name=name,
+            num_features=input_dim,
+            num_classes=output_dim,
+            source_path=str(data_path),
+        )
+
+        print(f"Nodes: {data.num_nodes}")
+        print(f"Edges: {data.num_edges}")
+        print(f"Features: {input_dim}")
+        print(f"Classes: {output_dim}")
+        print(f"Source: {data_path}")
+
+        cls.validate_edge_index_topology(data.edge_index, data.num_nodes)
+
+        return dataset, input_dim, output_dim, data
+
+    @staticmethod
+    def _canonical_heterophilous_name(name: str):
+        return name.replace("-", "_").lower()
+
+    @staticmethod
+    def standardize_paper_edge_index(edge_index, num_nodes):
+        edge_index, _ = remove_self_loops(edge_index)
+        return to_undirected(edge_index, num_nodes=num_nodes)
+
+    @staticmethod
+    def validate_edge_index_topology(edge_index, num_nodes, expect_undirected=True):
+        """Check for self loops and directedness. If so, raise excaptions"""
+        has_self_loops = contains_self_loops(edge_index)
+        undirected = is_undirected(edge_index, num_nodes=num_nodes)
+        num_missing_reverse = 0
+
+        if not undirected:
+            edges = set(map(tuple, edge_index.t().tolist()))
+            num_missing_reverse = sum((v, u) not in edges for u, v in edges)
+
+        print("Self-loops:", int(has_self_loops))
+        print("Missing reverse edges:", num_missing_reverse)
+
+        if has_self_loops:
+            raise ValueError(
+                "Loaded graph contains self-loops. Keep raw datasets loop-free; "
+                "PyG layers or model-specific preprocessing should add loops when needed."
+            )
+        if expect_undirected and not undirected:
+            raise ValueError(
+                "Loaded graph is not represented as bidirectional/undirected edge_index."
+            )
 
     @classmethod
     def precompute_h2gcn_hops(cls, edge_index, num_nodes):

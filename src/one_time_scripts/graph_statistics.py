@@ -19,7 +19,7 @@ def analyze_graph_properties():
     for name in dataset_names:
         try:
             dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(
-                name=name, root_dir='data/', device='cpu'
+                name=name, root_dir='../data/', device='cpu'
             )
 
             # Calculate Edge Homophily

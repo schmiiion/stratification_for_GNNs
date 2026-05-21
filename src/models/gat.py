@@ -9,7 +9,8 @@ class GATNet(torch.nn.Module):
         self.conv1 = GATConv(in_channels, 8, heads=8, dropout=0.5)
         self.conv2 = GATConv(64, out_channels, heads=1, concat=False, dropout=0.5)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, adj_dict):
+        edge_index = adj_dict["edge_idx"]
         x = F.dropout(x, p=0.5, training=self.training)
         x = F.elu(self.conv1(x, edge_index))
         x = F.dropout(x, p=0.5, training=self.training)

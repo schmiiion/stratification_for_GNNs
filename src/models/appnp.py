@@ -10,7 +10,8 @@ class APPNPNet(torch.nn.Module):
         # K is the number of propagation steps, alpha is teleport probability
         self.prop = APPNP(K=10, alpha=0.1)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, adj_dict):
+        edge_index = adj_dict["edge_idx"]
         x = F.dropout(x, p=0.5, training=self.training)
         x = F.relu(self.lin1(x))
         x = F.dropout(x, p=0.5, training=self.training)

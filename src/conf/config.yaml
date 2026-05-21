@@ -2,36 +2,38 @@
 init_seeds: [100,101]
 #  ,110,111,112,113,114,115,116,117,118,119]
 
-#fixed
+#fixed by our problem definition
 hidden_layers: 2
 hidden_units: 64
-
-#variable
 optimizer: "Adam"
 lr: 0.01
 weight_decay: 5e-4
 max_epochs: 1000
-test_all_n: 100
-
 num_folds: 5
 
+early_stopping_patience: 100
+num_workers: 4
+
+stratification_types: ["random", "label"]
+
 #fold_seeds: [0,1,2,3,4,5,6,7,8,9]
-fold_seeds: [0,1,2]
+fold_seeds: [0,1,2,3]
 #fold_seeds: [3,4,5,6,7,8,9]
 
 #model_names: ["MLP", "GCN", "GAT", "SAGE","MixHop", "GPRGNN", "H2GCN"]
-model_names: ["H2GCN"]
+model_names: ["H2GCN", "GCN", "GAT", "SAGE", "GPRGNN"]
 
 datasets: [
-#    "Cora",
+    "Cora",
 #    "CiteSeer",
 #    "PubMed",
 #    "Computers",
 #    "Photo",
-#    "chameleon",
+    "chameleon",
     "squirrel",
     "crocodile",
-    "Actor"
+    "Actor",
+    "Texas",
 ]
 
 

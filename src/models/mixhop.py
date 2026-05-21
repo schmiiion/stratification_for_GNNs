@@ -9,10 +9,13 @@ class MixHopNet(torch.nn.Module):
         # hidden_channels=64 means output is 64*3 = 192.
         self.conv1 = MixHopConv(in_channels, hidden_channels, powers=[0, 1, 2])
         self.conv2 = MixHopConv(hidden_channels * 3, out_channels, powers=[0, 1, 2])
+        self.lin = torch.nn.Linear(out_channels * 3, out_channels)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, adj_dict):
+        edge_index = adj_dict["edge_idx"]
         x = F.dropout(x, p=0.5, training=self.training)
         x = F.relu(self.conv1(x, edge_index))
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.conv2(x, edge_index)
+        x = self.lin(x)
         return F.log_softmax(x, dim=1)
