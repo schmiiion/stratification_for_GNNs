@@ -24,16 +24,16 @@ fold_seeds: [0,1,2,3]
 model_names: ["H2GCN", "GCN", "GAT", "SAGE", "GPRGNN"]
 
 datasets: [
-    "Cora",
+#    "Cora",
 #    "CiteSeer",
 #    "PubMed",
 #    "Computers",
 #    "Photo",
-    "chameleon",
-    "squirrel",
-    "crocodile",
-    "Actor",
-    "Texas",
+#    "chameleon",
+#    "squirrel",
+#    "crocodile",
+#    "Actor",
+#    "Texas",
 ]
 
 
