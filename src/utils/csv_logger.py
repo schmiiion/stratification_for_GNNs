@@ -25,13 +25,13 @@ class CsvLogger:
 
     FOLD_STATS_HEADER = [
         "Dataset",
-        "StratificationType",
-        "Fold_Seed",
-        "Fold",
-        "SplitComparison",
-        "Property",
-        "EMD",
-        "KS_Stat",
+        "StratificationMethod",
+        "StratSeed",
+        "DegreeEmd",
+        "NeighHetEmd",
+        "PageRankEmd",
+        "EigCentralityEmd",
+        "ClusteringEmd",
     ]
 
     def __init__(self, cfg):

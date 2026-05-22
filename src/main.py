@@ -146,7 +146,7 @@ def main(cfg: DictConfig):
             stratifiers = get_stratifiers(cfg=cfg, dataset_name=dataset_id, seed=fold_seed)
             for stratifier in stratifiers:
                 folds = stratifier.get_folds(data)
-                stratification_name = stratifier.__class__.__name__
+                stratification_name = stratifier.stratification_method
 
                 # 2. Build tasks
                 tasks = []
