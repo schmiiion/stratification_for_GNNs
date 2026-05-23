@@ -14,8 +14,7 @@ num_folds: 5
 early_stopping_patience: 100
 num_workers: 4
 
-stratification_types: ["random", "label", "wdes"]
-#stratification_types: ["wdes"]
+stratification_types: ["wdes"] #["random", "label", "wdes"]
 wdes_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient"]
 wdes_n_gen: 50
 wdes_n_pop: 100
@@ -30,7 +29,7 @@ fold_seeds: [0,1,2,3,4]
 #fold_seeds: [3,4,5,6,7,8,9]
 
 #model_names: ["MLP", "GCN", "GAT", "SAGE","MixHop", "GPRGNN", "H2GCN"]
-model_names: ["H2GCN", "GCN", "GAT", "SAGE", "GPRGNN"]
+model_names: ["H2GCN", "GCN", "GAT", "SAGE", "GPRGNN", "MLP"]
 
 datasets: [
     "Cora",

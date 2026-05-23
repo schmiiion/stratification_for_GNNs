@@ -19,7 +19,7 @@ from stratify.baseclass import BaseNodeStratifier
 from utils.experiment_utils import as_list
 
 
-NUM_DIAGNOSTIC_RUNS = 100
+NUM_DIAGNOSTIC_RUNS = 25
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
 OUTPUT_DIR = SRC_ROOT / "logs"
 
