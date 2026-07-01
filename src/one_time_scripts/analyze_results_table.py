@@ -8,7 +8,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RUN_METRICS_FILES = [
-    PROJECT_ROOT / "src/logs/0521-1525_RunMetrics_CORA-CHAM-SQUIR-ACT-TX.csv"
+    PROJECT_ROOT / "src/logs/runs/0521-1525_RunMetrics_CORA-CHAM-SQUIR-ACT-TX.csv"
 ]
 
 DATASET_DISPLAY_NAMES = {

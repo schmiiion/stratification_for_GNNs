@@ -1,148 +1,177 @@
-from __future__ import annotations
-
 from pathlib import Path
+import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RUN_METRICS_FILES = [
-    PROJECT_ROOT / "src/logs/0521-1525_RunMetrics_CORA-CHAM-SQUIR-ACT-TX.csv"
-]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-DATASET_DISPLAY_NAMES = {
-    "Actor": "Actor",
-    "Cora": "Cora",
-    "Texas": "Texas",
-    "chameleon": "Chameleon",
-    "squirrel": "Squirrel",
+from utils.dataset_reference_metrics import dataset_metric_summary
+
+RUN_METRICS_FILE = PROJECT_ROOT / "src/logs/runs/0522-1916_RunMetrics_CORA-CITE-CHAM-ACT-TX.csv"
+
+DATASET_ORDER = ["Cora", "CiteSeer", "chameleon", "Actor", "Texas"]
+MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN", "MLP"]
+STRATIFIER_ORDER = [
+    "RandomKFold",
+    "LabelStratifiedKFold",
+    "WDES_Degree",
+    "WDES_NeighHet",
+    "WDES_PageRank",
+    "WDES_EigCentrality",
+    "WDES_Clustering",
+]
+STRATIFIER_LABELS = {
+    "RandomKFold": "Random",
+    "LabelStratifiedKFold": "Label",
+    "WDES_Degree": "WDES\nDegree",
+    "WDES_NeighHet": "WDES\nNeigh. Het.",
+    "WDES_PageRank": "WDES\nPageRank",
+    "WDES_EigCentrality": "WDES\nEigenvector",
+    "WDES_Clustering": "WDES\nClustering",
 }
 
-DATASET_ORDER = ["Cora", "chameleon", "squirrel", "Actor", "Texas"]
-MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN"]
-RANDOM_STRATIFIER = "RandomKFold"
-LABEL_STRATIFIER = "LabelStratifiedKFold"
+
+PROPERTY_ORDER = {
+    "Degree": 0,
+    "NeighHet": 1,
+    "PageRank": 2,
+    "EigCentrality": 3,
+    "Clustering": 4,
+}
+
+PROPERTY_LABELS = {
+    "Degree": "Degree",
+    "NeighHet": "Neigh. Het.",
+    "PageRank": "PageRank",
+    "EigCentrality": "Eigenvector",
+    "Clustering": "Clustering",
+}
 
 
-def main() -> None:
-    for path in RUN_METRICS_FILES:
-        if not path.exists():
-            raise FileNotFoundError(f"RunMetrics file not found: {path}")
+def stratifier_sort_key(stratifier):
+    if stratifier in STRATIFIER_ORDER:
+        return (0, STRATIFIER_ORDER.index(stratifier), 0, stratifier)
+    if stratifier.startswith("StratifiedKFoldDynamic_"):
+        parts = stratifier.split("_")
+        property_name = parts[1] if len(parts) > 1 else ""
+        bin_part = parts[2] if len(parts) > 2 and parts[2].startswith("b") else "b0"
+        try:
+            selected_bins = int(bin_part[1:])
+        except ValueError:
+            selected_bins = 0
+        return (1, PROPERTY_ORDER.get(property_name, 99), selected_bins, stratifier)
+    return (2, 99, 0, stratifier)
 
-    df = pd.concat([pd.read_csv(path) for path in RUN_METRICS_FILES], ignore_index=True)
 
-    required_columns = {"Dataset", "Model", "StratificationType", "Test_Accuracy"}
-    missing_columns = required_columns - set(df.columns)
-    if missing_columns:
-        raise ValueError(f"Missing required columns: {sorted(missing_columns)}")
+def stratifier_label(stratifier):
+    if stratifier in STRATIFIER_LABELS:
+        return STRATIFIER_LABELS[stratifier]
+    if stratifier.startswith("StratifiedKFoldDynamic_"):
+        parts = stratifier.split("_")
+        property_name = parts[1] if len(parts) > 1 else ""
+        bin_part = parts[2] if len(parts) > 2 and parts[2].startswith("b") else ""
+        label = PROPERTY_LABELS.get(property_name, property_name)
+        return f"SKF dyn.\n{label}\n{bin_part}" if bin_part else f"SKF dyn.\n{label}"
+    return stratifier
 
-    df = df.dropna(subset=["Dataset", "Model", "StratificationType", "Test_Accuracy"]).copy()
-    df = df[df["StratificationType"].isin([RANDOM_STRATIFIER, LABEL_STRATIFIER])]
-    df["AccuracyPercent"] = pd.to_numeric(df["Test_Accuracy"], errors="raise")
-    if df["AccuracyPercent"].max() <= 1.0:
-        df["AccuracyPercent"] *= 100.0
 
-    random_stats = (
-        df[df["StratificationType"] == RANDOM_STRATIFIER]
-        .groupby(["Dataset", "Model"], as_index=False)["AccuracyPercent"]
-        .agg(RandomMean="mean", RandomVariance="var")
+df = pd.read_csv(RUN_METRICS_FILE)
+# df = df[df["Model"] != "MLP"].copy()
+df["AccuracyPercent"] = pd.to_numeric(df["Test_Accuracy"], errors="raise")
+if df["AccuracyPercent"].max() <= 1.0:
+    df["AccuracyPercent"] *= 100.0
+
+fold_seed_stats = (
+    df.groupby(["Dataset", "Model", "StratificationType", "Fold_Seed", "Init_Seed"], as_index=False)
+    .agg(
+        Mean=("AccuracyPercent", "mean"),
+        Std=("AccuracyPercent", "std"),
+        N=("AccuracyPercent", "size"),
     )
-    label_stats = (
-        df[df["StratificationType"] == LABEL_STRATIFIER]
-        .groupby(["Dataset", "Model"], as_index=False)["AccuracyPercent"]
-        .agg(LabelMean="mean", LabelVariance="var")
+)
+
+stats = (
+    fold_seed_stats.groupby(["Dataset", "Model", "StratificationType"], as_index=False)
+    .agg(
+        Mean=("Mean", "mean"),
+        Std=("Std", "mean"),
+        N=("Std", "size"),
     )
+)
+stratifiers = sorted(stats["StratificationType"].unique(), key=stratifier_sort_key)
 
-    summary = df[["Dataset", "Model"]].drop_duplicates()
-    summary = summary.merge(random_stats, on=["Dataset", "Model"], how="left")
-    summary = summary.merge(label_stats, on=["Dataset", "Model"], how="left")
+datasets = [dataset for dataset in DATASET_ORDER if dataset in stats["Dataset"].unique()]
+datasets += [
+    dataset
+    for dataset in sorted(stats["Dataset"].unique())
+    if dataset not in datasets
+]
 
-    observed_datasets = list(dict.fromkeys(summary["Dataset"].tolist()))
-    dataset_order = [dataset for dataset in DATASET_ORDER if dataset in observed_datasets]
-    dataset_order.extend(dataset for dataset in observed_datasets if dataset not in dataset_order)
+for dataset in datasets:
+    dataset_stats = stats[stats["Dataset"] == dataset]
+    models = [model for model in MODEL_ORDER if model in dataset_stats["Model"].unique()]
+    table_rows = []
+    bold_cells = set()
+    for row_idx, model in enumerate(models, start=1):
+        model_stats = dataset_stats[dataset_stats["Model"] == model]
+        row = [model]
 
-    observed_models = list(dict.fromkeys(summary["Model"].tolist()))
-    model_order = [model for model in MODEL_ORDER if model in observed_models]
-    model_order.extend(model for model in observed_models if model not in model_order)
+        available_stds = model_stats[model_stats["StratificationType"].isin(stratifiers)]["Std"]
+        best_std = available_stds.min() if not available_stds.empty else None
 
-    rows = []
-    for model in model_order:
-        row = {"Model": model}
-        for dataset in dataset_order:
-            match = summary[(summary["Dataset"] == dataset) & (summary["Model"] == model)]
-            if match.empty:
-                row[DATASET_DISPLAY_NAMES.get(dataset, dataset)] = ""
+        for col_idx, stratifier in enumerate(stratifiers, start=1):
+            values = model_stats[model_stats["StratificationType"] == stratifier]
+            if values.empty:
+                row.append("n/a")
                 continue
 
-            values = match.iloc[0]
-            random_text = "n/a"
-            label_text = "n/a"
-            if not pd.isna(values["RandomMean"]) and not pd.isna(values["RandomVariance"]):
-                random_text = f"{values['RandomMean']:.2f} ({values['RandomVariance']:.2f})"
-            if not pd.isna(values["LabelMean"]) and not pd.isna(values["LabelVariance"]):
-                label_text = f"{values['LabelMean']:.2f} ({values['LabelVariance']:.2f})"
-            row[DATASET_DISPLAY_NAMES.get(dataset, dataset)] = f"{random_text} | {label_text}"
-        rows.append(row)
+            mean = values.iloc[0]["Mean"]
+            std = values.iloc[0]["Std"]
+            row.append(f"Mean {mean:.2f}\nFold Std {std:.2f}")
+            if best_std is not None and abs(std - best_std) < 1e-12:
+                bold_cells.add((row_idx, col_idx))
 
-    table_df = pd.DataFrame(
-        rows,
-        columns=["Model", *[DATASET_DISPLAY_NAMES.get(dataset, dataset) for dataset in dataset_order]],
-    )
+        table_rows.append(row)
 
-    seed_columns = ["Fold_Seed", "Init_Seed"]
-    if set(seed_columns).issubset(df.columns):
-        num_fold_seeds = df["Fold_Seed"].nunique()
-        num_init_seeds = df["Init_Seed"].nunique()
-        num_seed_runs = df[seed_columns].drop_duplicates().shape[0]
-        sample_description = f"Means and variances are computed from {num_seed_runs} seed runs."
-        if "Fold" in df.columns:
-            group_sizes = df.groupby(["Dataset", "Model", "StratificationType"]).size()
-            if group_sizes.nunique() == 1:
-                sample_description = (
-                    f"Each mean and sample variance uses n = {group_sizes.iloc[0]} "
-                    f"fold-level test accuracies from {num_seed_runs} seed runs "
-                    f"({num_fold_seeds} fold seeds x {num_init_seeds} init seeds)."
-                )
-    else:
-        sample_description = "Means and variances are computed over all available test accuracies."
-
-    cell_text = table_df.values.tolist()
-    column_labels = table_df.columns.tolist()
-
-    fig_width = max(16, 2.8 * len(column_labels))
-    fig_height = max(6, 1.0 * len(table_df) + 2.3)
+    n_values = sorted(map(int, dataset_stats["N"].unique()))
+    n_text = f"n={n_values[0]}" if len(n_values) == 1 else f"n={min(n_values)}-{max(n_values)}"
+    fig_width = max(15, 2.35 * (len(stratifiers) + 1))
+    fig_height = max(6, 0.95 * len(models) + 2.4)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.axis("off")
 
     fig.suptitle(
-        "Experiment Accuracy Variance Summary",
+        f"{dataset}: Accuracy Dispersion | {dataset_metric_summary(dataset)} | {n_text}",
         fontsize=18,
         fontweight="bold",
-        y=0.97,
+        y=0.96,
     )
     fig.text(
         0.5,
-        0.905,
-        "Each cell reports: random mean (variance) | label-based mean (variance). "
-        "\nAll values are %-test acc; variance is the sample variance on %-test acc.\n"
-        f"{sample_description}",
+        0.89,
+        "Each cell reports mean test accuracy and the mean std across the 5 folds. "
+        "Bold marks the lowest mean fold-std within each model row.",
         ha="center",
         va="center",
         fontsize=11,
     )
 
     table = ax.table(
-        cellText=cell_text,
-        colLabels=column_labels,
+        cellText=table_rows,
+        colLabels=["Model", *[stratifier_label(stratifier) for stratifier in stratifiers]],
         cellLoc="center",
         colLoc="center",
         loc="center",
-        bbox=[0.02, 0.04, 0.96, 0.78],
+        bbox=[0.02, 0.05, 0.96, 0.76],
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1.0, 2.15)
+    table.scale(1.0, 2.0)
 
     for (row_idx, col_idx), cell in table.get_celld().items():
         cell.visible_edges = "horizontal"
@@ -156,15 +185,10 @@ def main() -> None:
         elif col_idx == 0:
             cell.set_text_props(weight="bold")
             cell.set_facecolor("#fafafa")
+        elif (row_idx, col_idx) in bold_cells:
+            cell.set_text_props(weight="bold")
         elif row_idx % 2 == 0:
             cell.set_facecolor("#fbfbfb")
 
-    print(f"Read {len(df)} random/label-stratified runs from:")
-    for path in RUN_METRICS_FILES:
-        print(f"  {path}")
-    print("Rendering table. Cell order: random mean (variance) | label mean (variance).")
+    print(f"Rendering {dataset}: {len(dataset_stats)} model/stratifier summaries from {RUN_METRICS_FILE}")
     plt.show()
-
-
-if __name__ == "__main__":
-    main()

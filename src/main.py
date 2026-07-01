@@ -10,6 +10,7 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from utils.csv_logger import CsvLogger
+from utils.experiment_utils import as_list
 from utils.training_utils import (
     clone_state_dict,
     evaluate_mask,
@@ -113,6 +114,35 @@ def worker_task(
     )
 
 
+def configured_dataset_requests(cfg):
+    for dataset_name in as_list(cfg.datasets):
+        canonical_name = str(dataset_name).replace("_", "-").lower()
+        if canonical_name != "syn-cora":
+            yield str(dataset_name), {"name": str(dataset_name)}
+            continue
+
+        ratios = cfg.get("syn_cora_ratios", None)
+        if ratios is None:
+            ratios = cfg.get("syn-cora-ratio", None)
+        if ratios is None:
+            ratios = cfg.get("syn_cora_ratio", [0.70])
+
+        realizations = cfg.get("syn_cora_realizations", None)
+        if realizations is None:
+            realizations = cfg.get("syn-cora-realizations", [1])
+
+        for ratio in as_list(ratios):
+            for realization in as_list(realizations):
+                ratio_value = float(ratio)
+                realization_value = int(realization)
+                run_dataset_name = f"syn-cora-h{ratio_value:.2f}-r{realization_value}"
+                yield run_dataset_name, {
+                    "name": "syn-cora",
+                    "syn_cora_homophily": ratio_value,
+                    "syn_cora_realization": realization_value,
+                }
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     CsvLogger(cfg).initialize()
@@ -133,17 +163,17 @@ def main(cfg: DictConfig):
     print(f"Starting ProcessPoolExecutor with {num_workers} workers.")
 
     # DATASET LOOP
-    for dataset_id in cfg.datasets:
+    for dataset_id, dataset_kwargs in configured_dataset_requests(cfg):
         print(f"\n{'=' * 40}\nDATASET: {dataset_id}\n{'=' * 40}")
 
-        dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(name=dataset_id)
+        dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(**dataset_kwargs)
         adj_hop1, adj_hop2 = None, None
         if "H2GCN" in cfg.model_names:
             data.h2gcn_x = DatasetFactory.row_normalize_features(data.x)
             adj_hop1, adj_hop2 = DatasetFactory.precompute_h2gcn_hops(data.edge_index, data.num_nodes)
 
         for fold_seed in cfg.fold_seeds:
-            stratifiers = get_stratifiers(cfg=cfg, dataset_name=dataset_id, seed=fold_seed)
+            stratifiers = get_stratifiers(cfg=cfg, dataset_name=dataset_id, seed=fold_seed, data=data)
             for stratifier in stratifiers:
                 folds = stratifier.get_folds(data)
                 stratification_name = stratifier.stratification_method

@@ -9,6 +9,9 @@ import seaborn as sns
 import torch
 from torch_geometric.utils import degree, to_networkx
 
+from utils.dataset_reference_metrics import dataset_metric_summary
+from stratify.propagated_label_distribution import compute_propagated_label_cluster_ids
+
 
 class BaseNodeStratifier(ABC):
     """
@@ -31,6 +34,7 @@ class BaseNodeStratifier(ABC):
         "PageRank",
         "Eigenvector Centrality",
         "Clustering Coefficient",
+        "Propagated Label Cluster",
     )
 
     PROPERTY_COLUMN_NAMES = {
@@ -39,6 +43,7 @@ class BaseNodeStratifier(ABC):
         "PageRank": "PageRankEmd",
         "Eigenvector Centrality": "EigCentralityEmd",
         "Clustering Coefficient": "ClusteringEmd",
+        "Propagated Label Cluster": "PropLabelClusterTvd",
     }
 
     PROPERTY_METHOD_NAMES = {
@@ -47,6 +52,11 @@ class BaseNodeStratifier(ABC):
         "PageRank": "PageRank",
         "Eigenvector Centrality": "EigCentrality",
         "Clustering Coefficient": "Clustering",
+        "Propagated Label Cluster": "PropLabelCluster",
+    }
+
+    CATEGORICAL_PROPERTY_NAMES = {
+        "Propagated Label Cluster",
     }
 
     PROPERTY_ALIASES = {
@@ -61,9 +71,15 @@ class BaseNodeStratifier(ABC):
         "clusteringcoefficient": "Clustering Coefficient",
         "clustercoeff": "Clustering Coefficient",
         "clustering": "Clustering Coefficient",
+        "propagatedlabelcluster": "Propagated Label Cluster",
+        "propagatedlabelclusters": "Propagated Label Cluster",
+        "propagatedlabeldistribution": "Propagated Label Cluster",
+        "labelpropagationcluster": "Propagated Label Cluster",
+        "propagatedlabel": "Propagated Label Cluster",
+        "proplabelcluster": "Propagated Label Cluster",
     }
 
-    def __init__(self, cfg, dataset_name, seed, n_splits=5):
+    def __init__(self, cfg, dataset_name, seed, n_splits=5, property_options=None):
         if n_splits != 5:
             raise ValueError("n_splits is fixed to 5 in our setting")
 
@@ -72,10 +88,30 @@ class BaseNodeStratifier(ABC):
         self.n_splits = n_splits
         self.seed = seed
         self.stratification_method = self.__class__.__name__
+        self.property_options = property_options or {}
 
     @abstractmethod
     def get_folds(self, data):
         """Return a list of dicts with train_mask, val_mask, and test_mask."""
+
+    @classmethod
+    def canonical_property_name(cls, property_name):
+        key = str(property_name).replace(" ", "").replace("_", "").replace("-", "").lower()
+        if key in cls.PROPERTY_ALIASES:
+            return cls.PROPERTY_ALIASES[key]
+        if property_name in cls.PROPERTY_NAMES:
+            return property_name
+        available = ", ".join(cls.PROPERTY_NAMES)
+        raise ValueError(f"Unknown node property '{property_name}'. Available: {available}")
+
+    @classmethod
+    def is_categorical_property(cls, property_name):
+        return cls.canonical_property_name(property_name) in cls.CATEGORICAL_PROPERTY_NAMES
+
+    def get_property_option(self, key, default):
+        if key in self.property_options:
+            return self.property_options[key]
+        return self.cfg.get(key, default)
 
     def _masks_from_fold_buckets(self, fold_buckets, num_nodes):
         """
@@ -117,6 +153,12 @@ class BaseNodeStratifier(ABC):
         return mask
 
     def _validate_fold_buckets(self, fold_buckets, num_nodes):
+        """Here i chck:
+        -is the number of buckets correct?
+        -is the overall number of nodes correct
+        -is every node occurring once?
+        -is the enumeration correct
+        """
         if len(fold_buckets) != self.n_splits:
             raise ValueError(f"Expected {self.n_splits} fold buckets, got {len(fold_buckets)}.")
 
@@ -131,15 +173,18 @@ class BaseNodeStratifier(ABC):
         if unique_indices[0] != 0 or unique_indices[-1] != num_nodes - 1:
             raise ValueError("Fold buckets contain node indices outside the graph.")
 
+    #TODO: make this a static method
     def _compute_node_properties(self, data):
         """
         Precompute node-level properties used for fold diagnostics.
         """
         num_nodes = data.num_nodes
 
+        #1. Degree
         row, col = data.edge_index
         deg = degree(col, num_nodes).cpu().numpy()
 
+        #Neighborhood heterogenity
         y = data.y
         same_class_match = (y[row] == y[col]).float()
         same_class_neighbors = torch.zeros(num_nodes, device=data.edge_index.device)
@@ -148,16 +193,28 @@ class BaseNodeStratifier(ABC):
         deg_tensor = torch.tensor(deg, device=data.edge_index.device)
         neighborhood_homophily = (same_class_neighbors / deg_tensor.clamp(min=1)).cpu().numpy()
 
+        #3. PageRank
         graph = to_networkx(data, to_undirected=True)
         pagerank = np.array(list(nx.pagerank(graph).values()))
 
+        #4 Eigenvector Centrality
         try:
             eigen = np.array(list(nx.eigenvector_centrality(graph, max_iter=1000).values()))
         except nx.PowerIterationFailedConvergence:
             print("Eigenvector centrality failed to converge. Defaulting to degree centrality.")
             eigen = np.array(list(nx.degree_centrality(graph).values()))
 
+        #5. Clustering coefficient
         clustering = np.array(list(nx.clustering(graph).values()))
+
+        propagated_label_cluster = compute_propagated_label_cluster_ids(
+            data=data,
+            num_hops=self.get_property_option("propagated_label_num_hops", 3),
+            decay=self.get_property_option("propagated_label_decay", 0.5),
+            num_clusters=self.get_property_option("propagated_label_num_clusters", 50),
+            seed=self.seed,
+            min_cluster_size=self.n_splits,
+        )
 
         return {
             "Degree": deg,
@@ -165,18 +222,17 @@ class BaseNodeStratifier(ABC):
             "PageRank": pagerank,
             "Eigenvector Centrality": eigen,
             "Clustering Coefficient": clustering,
+            "Propagated Label Cluster": propagated_label_cluster,
         }
 
     def get_fold_stat_property_names(self):
-        configured_properties = self._cfg_get("fold_stat_properties", list(self.PROPERTY_NAMES))
+        configured_properties = self.cfg.get("fold_stat_properties", list(self.PROPERTY_NAMES))
         if isinstance(configured_properties, str):
             configured_properties = [configured_properties]
 
         property_names = []
         for property_name in configured_properties:
-            canonical_name = self._canonical_property_name(property_name)
-            if canonical_name not in property_names:
-                property_names.append(canonical_name)
+            property_names.append(self.canonical_property_name(property_name))
 
         return property_names
 
@@ -192,28 +248,32 @@ class BaseNodeStratifier(ABC):
 
             for fold_bucket_mask in fold_bucket_masks:
                 fold_bucket_data = prop_data[fold_bucket_mask]
-                emd_values.append(wasserstein_distance(fold_bucket_data, prop_data))
+                if self.is_categorical_property(prop_name):
+                    emd_values.append(
+                        self._categorical_total_variation_distance(fold_bucket_data, prop_data)
+                    )
+                else:
+                    emd_values.append(wasserstein_distance(fold_bucket_data, prop_data))
 
             emd_summary[self.PROPERTY_COLUMN_NAMES[prop_name]] = float(np.mean(emd_values))
 
         return emd_summary
 
-    def _canonical_property_name(self, property_name):
-        normalized_name = str(property_name).replace("_", "").replace(" ", "").lower()
-        if normalized_name in self.PROPERTY_ALIASES:
-            return self.PROPERTY_ALIASES[normalized_name]
-        if property_name in self.PROPERTY_NAMES:
-            return property_name
+    @staticmethod
+    def _categorical_total_variation_distance(fold_values, global_values):
+        fold_values = np.asarray(fold_values, dtype=np.int64)
+        global_values = np.asarray(global_values, dtype=np.int64)
+        if len(fold_values) == 0 or len(global_values) == 0:
+            return float("inf")
 
-        available = ", ".join(self.PROPERTY_NAMES)
-        raise ValueError(f"Unknown fold-stat property '{property_name}'. Available: {available}")
-
-    def _cfg_get(self, key, default):
-        if hasattr(self.cfg, "get"):
-            return self.cfg.get(key, default)
-        return getattr(self.cfg, key, default)
+        num_categories = int(max(fold_values.max(), global_values.max())) + 1
+        fold_distribution = np.bincount(fold_values, minlength=num_categories) / len(fold_values)
+        global_distribution = np.bincount(global_values, minlength=num_categories) / len(global_values)
+        return float(0.5 * np.abs(fold_distribution - global_distribution).sum())
 
     def _analyze_distributions(self, data, folds, dataset_name):
+        """Calls the function to compute the average EMDs to global fold distribution and either logs or plots the results"""
+        #Compute all properties of the graph nodes
         props = self._compute_node_properties(data)
         prop_names = self.get_fold_stat_property_names()
         split_specs = [
@@ -222,8 +282,8 @@ class BaseNodeStratifier(ABC):
             ("Test", "test_mask"),
         ]
 
-        should_log = self._cfg_get("log_fold_statistics", True)
-        should_plot = self._cfg_get("plot_fold_statistics", False)
+        should_log = self.cfg.get("log_fold_statistics", True)
+        should_plot = self.cfg.get("plot_fold_statistics", False)
 
         if should_plot:
             fig, axes = plt.subplots(
@@ -233,7 +293,8 @@ class BaseNodeStratifier(ABC):
                 squeeze=False,
             )
             fig.suptitle(
-                f"{dataset_name} - Fold Property PDFs - {self.stratification_method}",
+                f"{dataset_name} - Fold Property PDFs - {self.stratification_method} | "
+                f"{dataset_metric_summary(dataset_name, data)}",
                 fontsize=20,
             )
 

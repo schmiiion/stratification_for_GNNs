@@ -21,7 +21,7 @@ from utils.experiment_utils import as_list
 
 NUM_DIAGNOSTIC_RUNS = 25
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
-OUTPUT_DIR = SRC_ROOT / "logs"
+OUTPUT_DIR = SRC_ROOT / "logs/stratification_diagnostics"
 
 
 def main() -> None:
@@ -34,6 +34,11 @@ def main() -> None:
         raise ValueError("No stratification_types configured.")
 
     run_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+    diagnostic_stratification_types = []
+    for stratification_type in ["random", "label", *stratification_types]:
+        if stratification_type not in diagnostic_stratification_types:
+            diagnostic_stratification_types.append(stratification_type)
+    run_cfg.stratification_types = diagnostic_stratification_types
     run_cfg.log_fold_statistics = False
     run_cfg.plot_fold_statistics = False
 
@@ -44,6 +49,8 @@ def main() -> None:
     emd_columns = list(BaseNodeStratifier.PROPERTY_COLUMN_NAMES.values())
     header = [
         "Dataset",
+        "LabelInformativenessEdge",
+        "LabelInformativenessNode",
         "StratificationMethod",
         "StratSeed",
         "EvolutionStart",
@@ -65,6 +72,7 @@ def main() -> None:
                     cfg=run_cfg,
                     dataset_name=dataset_id,
                     seed=strat_seed,
+                    data=data,
                 )
                 for stratifier in stratifiers:
                     print(
@@ -76,6 +84,8 @@ def main() -> None:
 
                     writer.writerow([
                         dataset_id,
+                        data.label_informativeness_edge,
+                        data.label_informativeness_node,
                         stratifier.stratification_method,
                         strat_seed,
                         getattr(stratifier, "optimization_start_time", ""),

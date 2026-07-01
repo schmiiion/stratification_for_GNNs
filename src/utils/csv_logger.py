@@ -1,8 +1,12 @@
 import csv
 from datetime import datetime
 import os
+from pathlib import Path
 
 from utils.experiment_utils import build_log_path
+
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
 
 
 class CsvLogger:
@@ -32,6 +36,7 @@ class CsvLogger:
         "PageRankEmd",
         "EigCentralityEmd",
         "ClusteringEmd",
+        "PropLabelClusterTvd",
     ]
 
     def __init__(self, cfg):
@@ -46,17 +51,27 @@ class CsvLogger:
             self.cfg.datasets,
             "RunMetrics",
         )
+        self.cfg.run_csv_filename = self._resolve_log_path(self.cfg.run_csv_filename)
+
         self.cfg.fold_stats_csv_filename = build_log_path(
             self.cfg.fold_stats_csv_filename,
             timestamp,
             self.cfg.datasets,
             "FoldStatistics",
         )
+        self.cfg.fold_stats_csv_filename = self._resolve_log_path(self.cfg.fold_stats_csv_filename)
 
         self._write_header(self.cfg.run_csv_filename, self.RUN_METRICS_HEADER)
         self._write_header(self.cfg.fold_stats_csv_filename, self.FOLD_STATS_HEADER)
 
         return self.cfg
+
+    @staticmethod
+    def _resolve_log_path(filepath):
+        path = Path(filepath).expanduser()
+        if not path.is_absolute():
+            path = SRC_ROOT / path
+        return str(path)
 
     @staticmethod
     def _write_header(filepath, header):

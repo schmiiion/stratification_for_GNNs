@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import warnings
+from pathlib import Path
 
 # Suppress the pandas warning about the python engine sniffing the delimiter
 warnings.filterwarnings("ignore", message=".*Falling back to the 'python' engine.*")
@@ -50,11 +51,12 @@ def concatenate_and_verify(file1_abs, file2_abs):
 
 if __name__ == "__main__":
 
-    run_results_file1 = "/Users/jonas/Uni/SoSe26/Project/stratification_for_GNNs/src/logs/0521-1525_RunMetrics_CORA-CHAM-SQUIR-ACT-TX.csv"
-    run_results_file2 = "/Users/jonas/Uni/SoSe26/Project/stratification_for_GNNs/src/logs/0522-0744_RunMetrics_ACT-TX.csv"
+    project_root = Path(__file__).resolve().parents[2]
+    run_results_file1 = project_root / "src/logs/runs/0522-1916_FoldStatistics_CORA-CITE-CHAM-ACT-TX.csv"
+    run_results_file2 = project_root / "src/logs/runs/0527-0850_FoldStatistics_CITE.csv"
 
-    # run_results_file1 = "/Users/jonas/Uni/SoSe26/Project/stratification_for_GNNs/src/logs/20260517_143150_FoldStatistics.csv"
-    # run_results_file2 = "/Users/jonas/Uni/SoSe26/Project/stratification_for_GNNs/src/logs/20260520_225756_FoldStatistics.csv"
+    # run_results_file1 = project_root / "src/logs/archive/20260517_143150_FoldStatistics.csv"
+    # run_results_file2 = project_root / "src/logs/archive/20260520_225756_FoldStatistics.csv"
 
     print("--- Checking Run Results ---")
     concatenate_and_verify(run_results_file1, run_results_file2)

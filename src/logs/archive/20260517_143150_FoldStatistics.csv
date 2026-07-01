@@ -1,0 +1,501 @@
+Dataset,StratificationType,Fold_Seed,Fold,Property,EMD,KS_Stat
+Cora,LabelStratifiedKFold,0,1,Degree,0.5649231838578765,0.0386550956922311
+Cora,LabelStratifiedKFold,0,1,Neighborhood Heterogeneity,0.0125112549102961,0.025203326825512
+Cora,LabelStratifiedKFold,0,1,PageRank,3.811850738517413e-05,0.0492975982391402
+Cora,LabelStratifiedKFold,0,1,Eigenvector Centrality,0.0008265316882279,0.0408663920434218
+Cora,LabelStratifiedKFold,0,1,Clustering Coefficient,0.0104722042266484,0.0373313843941763
+Cora,LabelStratifiedKFold,0,2,Degree,0.5093716034113246,0.0514322317738412
+Cora,LabelStratifiedKFold,0,2,Neighborhood Heterogeneity,0.0182963612844807,0.0335340195507218
+Cora,LabelStratifiedKFold,0,2,PageRank,3.53252583785661e-05,0.0550813818387491
+Cora,LabelStratifiedKFold,0,2,Eigenvector Centrality,0.0006587426246347,0.0247263137451319
+Cora,LabelStratifiedKFold,0,2,Clustering Coefficient,0.0157295428685389,0.0544680793068318
+Cora,LabelStratifiedKFold,0,3,Degree,0.6166859175516959,0.031051847914601
+Cora,LabelStratifiedKFold,0,3,Neighborhood Heterogeneity,0.0112495207103131,0.0247177956544108
+Cora,LabelStratifiedKFold,0,3,PageRank,4.262132458288825e-05,0.0430572449768819
+Cora,LabelStratifiedKFold,0,3,Eigenvector Centrality,0.0013147588491835,0.0299581250660152
+Cora,LabelStratifiedKFold,0,3,Clustering Coefficient,0.0112874932315513,0.0406210710306549
+Cora,LabelStratifiedKFold,0,4,Degree,0.4789059894382812,0.0268794136889504
+Cora,LabelStratifiedKFold,0,4,Neighborhood Heterogeneity,0.0148691285367674,0.0234734255301544
+Cora,LabelStratifiedKFold,0,4,PageRank,3.140163488784107e-05,0.0266175458290079
+Cora,LabelStratifiedKFold,0,4,Eigenvector Centrality,0.0008780961574044,0.0205323167969892
+Cora,LabelStratifiedKFold,0,4,Clustering Coefficient,0.0091966753703534,0.0224472788346794
+Cora,LabelStratifiedKFold,0,5,Degree,0.3678706048635808,0.0472266317054592
+Cora,LabelStratifiedKFold,0,5,Neighborhood Heterogeneity,0.0278706892028618,0.0502939829248507
+Cora,LabelStratifiedKFold,0,5,PageRank,2.58739566705156e-05,0.0671294420508603
+Cora,LabelStratifiedKFold,0,5,Eigenvector Centrality,0.0007597909915523,0.0382420904390935
+Cora,LabelStratifiedKFold,0,5,Clustering Coefficient,0.0133213998807301,0.0260460426819022
+Cora,LabelStratifiedKFold,1,1,Degree,0.4704064492168437,0.033535723168866
+Cora,LabelStratifiedKFold,1,1,Neighborhood Heterogeneity,0.0286228283520586,0.0440112711376421
+Cora,LabelStratifiedKFold,1,1,PageRank,3.703360870867503e-05,0.0418749339847969
+Cora,LabelStratifiedKFold,1,1,Eigenvector Centrality,0.0019365127675119,0.0381184559768035
+Cora,LabelStratifiedKFold,1,1,Clustering Coefficient,0.0112600306184827,0.0420095198181898
+Cora,LabelStratifiedKFold,1,2,Degree,0.2594474144187413,0.0266667348113924
+Cora,LabelStratifiedKFold,1,2,Neighborhood Heterogeneity,0.0307379091548633,0.0606641384973406
+Cora,LabelStratifiedKFold,1,2,PageRank,2.0507041292676823e-05,0.0366925275900958
+Cora,LabelStratifiedKFold,1,2,Eigenvector Centrality,0.0006771162619443,0.0391832173169377
+Cora,LabelStratifiedKFold,1,2,Clustering Coefficient,0.0057296220974686,0.0203377934056348
+Cora,LabelStratifiedKFold,1,3,Degree,0.2000047701308036,0.0195183530782676
+Cora,LabelStratifiedKFold,1,3,Neighborhood Heterogeneity,0.0149066514415528,0.0348662489394977
+Cora,LabelStratifiedKFold,1,3,PageRank,1.89637350600472e-05,0.0458290316975191
+Cora,LabelStratifiedKFold,1,3,Eigenvector Centrality,0.000479685869664,0.0467864650945678
+Cora,LabelStratifiedKFold,1,3,Clustering Coefficient,0.015055921595414,0.0315271573768369
+Cora,LabelStratifiedKFold,1,4,Degree,0.3750186591512594,0.0481401837510566
+Cora,LabelStratifiedKFold,1,4,Neighborhood Heterogeneity,0.0074997811283656,0.013853406883798
+Cora,LabelStratifiedKFold,1,4,PageRank,2.777799372317144e-05,0.0543004758829936
+Cora,LabelStratifiedKFold,1,4,Eigenvector Centrality,0.0005573663337472,0.0624294684082443
+Cora,LabelStratifiedKFold,1,4,Clustering Coefficient,0.036500418660568,0.0534312793055298
+Cora,LabelStratifiedKFold,1,5,Degree,0.3171910705618758,0.0327061868201138
+Cora,LabelStratifiedKFold,1,5,Neighborhood Heterogeneity,0.0120929221959442,0.0269442409116072
+Cora,LabelStratifiedKFold,1,5,PageRank,2.4291964605596565e-05,0.0411567564893329
+Cora,LabelStratifiedKFold,1,5,Eigenvector Centrality,0.0009793710638649,0.0354835215170934
+Cora,LabelStratifiedKFold,1,5,Clustering Coefficient,0.013448872818143,0.0303101385511286
+Cora,LabelStratifiedKFold,2,1,Degree,0.2167104496529718,0.0104687334961992
+Cora,LabelStratifiedKFold,2,1,Neighborhood Heterogeneity,0.0240652263582372,0.0505156852122537
+Cora,LabelStratifiedKFold,2,1,PageRank,2.279998202935579e-05,0.0402905691106772
+Cora,LabelStratifiedKFold,2,1,Eigenvector Centrality,0.0005544535236793,0.0202475016439915
+Cora,LabelStratifiedKFold,2,1,Clustering Coefficient,0.0085977801179917,0.0202151328992514
+Cora,LabelStratifiedKFold,2,2,Degree,0.2102537368863987,0.0157550605976973
+Cora,LabelStratifiedKFold,2,2,Neighborhood Heterogeneity,0.0416518008979709,0.0695178419928243
+Cora,LabelStratifiedKFold,2,2,PageRank,1.840458992229827e-05,0.0351729002054563
+Cora,LabelStratifiedKFold,2,2,Eigenvector Centrality,0.0007283746072578,0.056302876048151
+Cora,LabelStratifiedKFold,2,2,Clustering Coefficient,0.0105996925268159,0.0255099780914706
+Cora,LabelStratifiedKFold,2,3,Degree,0.2930598004040975,0.0266156262670659
+Cora,LabelStratifiedKFold,2,3,Neighborhood Heterogeneity,0.014208706924226,0.0271130827651766
+Cora,LabelStratifiedKFold,2,3,PageRank,2.2982686144275377e-05,0.0320672043285529
+Cora,LabelStratifiedKFold,2,3,Eigenvector Centrality,0.0005424315525907,0.0420947007254006
+Cora,LabelStratifiedKFold,2,3,Clustering Coefficient,0.0178575144100653,0.0361695168198219
+Cora,LabelStratifiedKFold,2,4,Degree,0.3689641377510271,0.0361189988970842
+Cora,LabelStratifiedKFold,2,4,Neighborhood Heterogeneity,0.0074347985999655,0.017353223917492
+Cora,LabelStratifiedKFold,2,4,PageRank,2.743608611022944e-05,0.0496892131766448
+Cora,LabelStratifiedKFold,2,4,Eigenvector Centrality,0.000872103234221,0.0387675321385221
+Cora,LabelStratifiedKFold,2,4,Clustering Coefficient,0.0083015589210332,0.0288148474811638
+Cora,LabelStratifiedKFold,2,5,Degree,0.7108987356132642,0.0562768531842534
+Cora,LabelStratifiedKFold,2,5,Neighborhood Heterogeneity,0.0072230784242583,0.0153623457901116
+Cora,LabelStratifiedKFold,2,5,PageRank,4.95339101341729e-05,0.0605170653398695
+Cora,LabelStratifiedKFold,2,5,Eigenvector Centrality,0.001889237990872,0.0361949149867743
+Cora,LabelStratifiedKFold,2,5,Clustering Coefficient,0.0110284273516135,0.0321653913047928
+Cora,LabelStratifiedKFold,3,1,Degree,0.2993972599005765,0.033535723168866
+Cora,LabelStratifiedKFold,3,1,Neighborhood Heterogeneity,0.0140440301419097,0.050128963893517
+Cora,LabelStratifiedKFold,3,1,PageRank,1.985320553833209e-05,0.0440947484267086
+Cora,LabelStratifiedKFold,3,1,Eigenvector Centrality,0.0005706818956977,0.0236819958227283
+Cora,LabelStratifiedKFold,3,1,Clustering Coefficient,0.0281563767646522,0.0463162664867645
+Cora,LabelStratifiedKFold,3,2,Degree,0.2976595693934769,0.0340416977576977
+Cora,LabelStratifiedKFold,3,2,Neighborhood Heterogeneity,0.0249147015825873,0.041288889343187
+Cora,LabelStratifiedKFold,3,2,PageRank,2.1740232005856033e-05,0.0483265358969379
+Cora,LabelStratifiedKFold,3,2,Eigenvector Centrality,0.0009467731249875,0.0407709894273458
+Cora,LabelStratifiedKFold,3,2,Clustering Coefficient,0.0052758541849793,0.0169135209357633
+Cora,LabelStratifiedKFold,3,3,Degree,0.3082254091238948,0.0122183493303077
+Cora,LabelStratifiedKFold,3,3,Neighborhood Heterogeneity,0.0116952678342374,0.0225320535753834
+Cora,LabelStratifiedKFold,3,3,PageRank,2.866363435535429e-05,0.0360417454590058
+Cora,LabelStratifiedKFold,3,3,Eigenvector Centrality,0.0013298609133332,0.0448818200093358
+Cora,LabelStratifiedKFold,3,3,Clustering Coefficient,0.0480921604966468,0.0736320798111028
+Cora,LabelStratifiedKFold,3,4,Degree,0.299165690704206,0.0333672538932585
+Cora,LabelStratifiedKFold,3,4,Neighborhood Heterogeneity,0.0104524008702941,0.0289393839878466
+Cora,LabelStratifiedKFold,3,4,PageRank,1.898558321750855e-05,0.0310036192356017
+Cora,LabelStratifiedKFold,3,4,Eigenvector Centrality,0.000545951012112,0.0349393140426853
+Cora,LabelStratifiedKFold,3,4,Clustering Coefficient,0.015046721698744,0.0380407848529488
+Cora,LabelStratifiedKFold,3,5,Degree,0.2818755880298266,0.0264375649871582
+Cora,LabelStratifiedKFold,3,5,Neighborhood Heterogeneity,0.0140359704968184,0.0223585678984123
+Cora,LabelStratifiedKFold,3,5,PageRank,1.928704032878317e-05,0.0366615003919488
+Cora,LabelStratifiedKFold,3,5,Eigenvector Centrality,0.0007614620380564,0.025901887410468
+Cora,LabelStratifiedKFold,3,5,Clustering Coefficient,0.0108324581408309,0.0321449195502696
+Cora,LabelStratifiedKFold,4,1,Degree,0.3096871134916333,0.0240806424684745
+Cora,LabelStratifiedKFold,4,1,Neighborhood Heterogeneity,0.0097692888512693,0.032487998010174
+Cora,LabelStratifiedKFold,4,1,PageRank,2.091782508853947e-05,0.0309479272078039
+Cora,LabelStratifiedKFold,4,1,Eigenvector Centrality,0.0012649941298904,0.02826643224881
+Cora,LabelStratifiedKFold,4,1,Clustering Coefficient,0.0081721432390683,0.0166477565052658
+Cora,LabelStratifiedKFold,4,2,Degree,0.500867141635404,0.0817481166501415
+Cora,LabelStratifiedKFold,4,2,Neighborhood Heterogeneity,0.0124780225758577,0.0255576793995086
+Cora,LabelStratifiedKFold,4,2,PageRank,3.308424095968802e-05,0.0959443666458825
+Cora,LabelStratifiedKFold,4,2,Eigenvector Centrality,0.0015491760575875,0.0437284705257024
+Cora,LabelStratifiedKFold,4,2,Clustering Coefficient,0.0181998278532326,0.0627050730341098
+Cora,LabelStratifiedKFold,4,3,Degree,0.5165063561992957,0.0766798526711028
+Cora,LabelStratifiedKFold,4,3,Neighborhood Heterogeneity,0.0308278989198327,0.0505770154654455
+Cora,LabelStratifiedKFold,4,3,PageRank,3.4174253968843726e-05,0.0919527893339875
+Cora,LabelStratifiedKFold,4,3,Eigenvector Centrality,0.000693320321105,0.0249034900321302
+Cora,LabelStratifiedKFold,4,3,Clustering Coefficient,0.0249185444866254,0.0636676172855911
+Cora,LabelStratifiedKFold,4,4,Degree,0.3253610065961713,0.035677150195292
+Cora,LabelStratifiedKFold,4,4,Neighborhood Heterogeneity,0.0116016756944981,0.0215482276152026
+Cora,LabelStratifiedKFold,4,4,PageRank,2.520497237121917e-05,0.0517619783221179
+Cora,LabelStratifiedKFold,4,4,Eigenvector Centrality,0.0005491763197869,0.035170474270843
+Cora,LabelStratifiedKFold,4,4,Clustering Coefficient,0.0329255783770704,0.0506351788335706
+Cora,LabelStratifiedKFold,4,5,Degree,0.7321108852583754,0.0348966645540953
+Cora,LabelStratifiedKFold,4,5,Neighborhood Heterogeneity,0.0108376802726462,0.0226997638071321
+Cora,LabelStratifiedKFold,4,5,PageRank,4.847268956305979e-05,0.03354808772488
+Cora,LabelStratifiedKFold,4,5,Eigenvector Centrality,0.0013118961193422,0.0388212704941455
+Cora,LabelStratifiedKFold,4,5,Clustering Coefficient,0.0087488329752608,0.023402627379095
+Cora,LabelStratifiedKFold,5,1,Degree,0.2399103215408878,0.0405069286149925
+Cora,LabelStratifiedKFold,5,1,Neighborhood Heterogeneity,0.006019400238269,0.0186852838057466
+Cora,LabelStratifiedKFold,5,1,PageRank,1.276460662053966e-05,0.0316685576828067
+Cora,LabelStratifiedKFold,5,1,Eigenvector Centrality,0.0006467923547735,0.0473162903374186
+Cora,LabelStratifiedKFold,5,1,Clustering Coefficient,0.0070912234516333,0.0177346648812748
+Cora,LabelStratifiedKFold,5,2,Degree,0.2876695525958026,0.016831747264841
+Cora,LabelStratifiedKFold,5,2,Neighborhood Heterogeneity,0.0206601090433821,0.0394455745111467
+Cora,LabelStratifiedKFold,5,2,PageRank,2.0635510897757017e-05,0.0212253784587707
+Cora,LabelStratifiedKFold,5,2,Eigenvector Centrality,0.0006542380738301,0.0294828156037793
+Cora,LabelStratifiedKFold,5,2,Clustering Coefficient,0.009739845681868,0.0388373828336621
+Cora,LabelStratifiedKFold,5,3,Degree,0.2203766358993223,0.0278456385671889
+Cora,LabelStratifiedKFold,5,3,Neighborhood Heterogeneity,0.0073120723222584,0.015070206103723
+Cora,LabelStratifiedKFold,5,3,PageRank,1.400123448654127e-05,0.0268813906975634
+Cora,LabelStratifiedKFold,5,3,Eigenvector Centrality,0.000636394727705,0.0245303976585472
+Cora,LabelStratifiedKFold,5,3,Clustering Coefficient,0.0084596022739021,0.0428170348185476
+Cora,LabelStratifiedKFold,5,4,Degree,0.5292733294835099,0.0302768719500284
+Cora,LabelStratifiedKFold,5,4,Neighborhood Heterogeneity,0.019037273763261,0.0359219582597985
+Cora,LabelStratifiedKFold,5,4,PageRank,3.936124080953827e-05,0.042769760147806
+Cora,LabelStratifiedKFold,5,4,Eigenvector Centrality,0.001530640034641,0.0209025143579503
+Cora,LabelStratifiedKFold,5,4,Clustering Coefficient,0.01509951052554,0.0455786554663423
+Cora,LabelStratifiedKFold,5,5,Degree,0.3945708907004529,0.0342808059388559
+Cora,LabelStratifiedKFold,5,5,Neighborhood Heterogeneity,0.0128199475405534,0.0277127846959987
+Cora,LabelStratifiedKFold,5,5,PageRank,2.396808841176951e-05,0.0461791602656892
+Cora,LabelStratifiedKFold,5,5,Eigenvector Centrality,0.0006299987654767,0.0429966554271047
+Cora,LabelStratifiedKFold,5,5,Clustering Coefficient,0.0169429486037095,0.0449099114852513
+Cora,LabelStratifiedKFold,6,1,Degree,0.5703986125733824,0.0358424221361327
+Cora,LabelStratifiedKFold,6,1,Neighborhood Heterogeneity,0.0139870966771991,0.0381218632130919
+Cora,LabelStratifiedKFold,6,1,PageRank,4.270142131511337e-05,0.0493981117096489
+Cora,LabelStratifiedKFold,6,1,Eigenvector Centrality,0.0015707847461445,0.0286804114578541
+Cora,LabelStratifiedKFold,6,1,Clustering Coefficient,0.0140115057486631,0.0341353967556296
+Cora,LabelStratifiedKFold,6,2,Degree,0.2694203950349743,0.0294282998231644
+Cora,LabelStratifiedKFold,6,2,Neighborhood Heterogeneity,0.0112370414199064,0.0212850050938182
+Cora,LabelStratifiedKFold,6,2,PageRank,1.895999137874662e-05,0.0353841488553389
+Cora,LabelStratifiedKFold,6,2,Eigenvector Centrality,0.0009676119173108,0.027878007311929
+Cora,LabelStratifiedKFold,6,2,Clustering Coefficient,0.0108201108279959,0.031004146606563
+Cora,LabelStratifiedKFold,6,3,Degree,0.3828370693679231,0.0237518441666411
+Cora,LabelStratifiedKFold,6,3,Neighborhood Heterogeneity,0.0222000550865996,0.0343023513337626
+Cora,LabelStratifiedKFold,6,3,PageRank,2.5224904837379764e-05,0.0294794083674908
+Cora,LabelStratifiedKFold,6,3,Eigenvector Centrality,0.0010321262438014,0.0328934591284971
+Cora,LabelStratifiedKFold,6,3,Clustering Coefficient,0.0115199131438864,0.0222322167820016
+Cora,LabelStratifiedKFold,6,4,Degree,0.3692626841711553,0.0307391924063438
+Cora,LabelStratifiedKFold,6,4,Neighborhood Heterogeneity,0.0253771210693128,0.0523155686840159
+Cora,LabelStratifiedKFold,6,4,PageRank,2.689396872234869e-05,0.0294887094008855
+Cora,LabelStratifiedKFold,6,4,Eigenvector Centrality,0.000989769662131,0.0283951765134384
+Cora,LabelStratifiedKFold,6,4,Clustering Coefficient,0.0121162734858993,0.033075531391303
+Cora,LabelStratifiedKFold,6,5,Degree,0.32552989857099,0.0107101395747163
+Cora,LabelStratifiedKFold,6,5,Neighborhood Heterogeneity,0.0278104243271328,0.0682605064882667
+Cora,LabelStratifiedKFold,6,5,PageRank,2.6528044481849645e-05,0.0352242126264664
+Cora,LabelStratifiedKFold,6,5,Eigenvector Centrality,0.0017174082824243,0.0381132889835518
+Cora,LabelStratifiedKFold,6,5,Clustering Coefficient,0.0073746705532571,0.0192212715177332
+Cora,LabelStratifiedKFold,7,1,Degree,0.2078618570119209,0.0105198420405256
+Cora,LabelStratifiedKFold,7,1,Neighborhood Heterogeneity,0.0081977027062973,0.0200072914856572
+Cora,LabelStratifiedKFold,7,1,PageRank,1.3746575041102694e-05,0.0194076178988936
+Cora,LabelStratifiedKFold,7,1,Eigenvector Centrality,0.0006530121576267,0.0429584351245174
+Cora,LabelStratifiedKFold,7,1,Clustering Coefficient,0.015900832222286,0.0241419727216662
+Cora,LabelStratifiedKFold,7,2,Degree,0.1995311642867114,0.0131553393096257
+Cora,LabelStratifiedKFold,7,2,Neighborhood Heterogeneity,0.0122257696913397,0.0307247532309118
+Cora,LabelStratifiedKFold,7,2,PageRank,1.941998039185742e-05,0.0314743452143662
+Cora,LabelStratifiedKFold,7,2,Eigenvector Centrality,0.0008672704591361,0.0474730232066863
+Cora,LabelStratifiedKFold,7,2,Clustering Coefficient,0.0062605107051647,0.0258438872477367
+Cora,LabelStratifiedKFold,7,3,Degree,0.3672387416394906,0.0214451451993744
+Cora,LabelStratifiedKFold,7,3,Neighborhood Heterogeneity,0.0328946759653736,0.0449210032266527
+Cora,LabelStratifiedKFold,7,3,PageRank,2.668865834304044e-05,0.0380043135611411
+Cora,LabelStratifiedKFold,7,3,Eigenvector Centrality,0.0012321619192965,0.03001264084663
+Cora,LabelStratifiedKFold,7,3,Clustering Coefficient,0.0221772708495557,0.0347367739605373
+Cora,LabelStratifiedKFold,7,4,Degree,0.3168396387758921,0.0222596210848835
+Cora,LabelStratifiedKFold,7,4,Neighborhood Heterogeneity,0.0052397285717829,0.0187401852864382
+Cora,LabelStratifiedKFold,7,4,PageRank,2.5461905510680163e-05,0.0542134709262701
+Cora,LabelStratifiedKFold,7,4,Eigenvector Centrality,0.0005773862822974,0.0341323857185628
+Cora,LabelStratifiedKFold,7,4,Clustering Coefficient,0.0059197118109319,0.0140530064903991
+Cora,LabelStratifiedKFold,7,5,Degree,0.2298926853568107,0.0239383049557852
+Cora,LabelStratifiedKFold,7,5,Neighborhood Heterogeneity,0.0146001811928437,0.0301924259626202
+Cora,LabelStratifiedKFold,7,5,PageRank,2.021179308415763e-05,0.0663702811539586
+Cora,LabelStratifiedKFold,7,5,Eigenvector Centrality,0.000910442374096,0.0483090757258729
+Cora,LabelStratifiedKFold,7,5,Clustering Coefficient,0.009170587049345,0.0177080676625606
+Cora,LabelStratifiedKFold,8,1,Degree,0.2194123880296966,0.0223821351786925
+Cora,LabelStratifiedKFold,8,1,Neighborhood Heterogeneity,0.0223993121939364,0.0496792087034443
+Cora,LabelStratifiedKFold,8,1,PageRank,1.6890228861210503e-05,0.0348423982854787
+Cora,LabelStratifiedKFold,8,1,Eigenvector Centrality,0.0009453321993195,0.0389736722851993
+Cora,LabelStratifiedKFold,8,1,Clustering Coefficient,0.0045942887702331,0.0116220829798325
+Cora,LabelStratifiedKFold,8,2,Degree,0.2198212563843076,0.0190123784894358
+Cora,LabelStratifiedKFold,8,2,Neighborhood Heterogeneity,0.023788121671589,0.0458682149148361
+Cora,LabelStratifiedKFold,8,2,PageRank,1.700650064325359e-05,0.0284402012995199
+Cora,LabelStratifiedKFold,8,2,Eigenvector Centrality,0.0006461792723329,0.0312375422923204
+Cora,LabelStratifiedKFold,8,2,Clustering Coefficient,0.0077836937319027,0.0315067139591063
+Cora,LabelStratifiedKFold,8,3,Degree,0.2913732184413248,0.0329786400357078
+Cora,LabelStratifiedKFold,8,3,Neighborhood Heterogeneity,0.0107175435196497,0.0366788986449421
+Cora,LabelStratifiedKFold,8,3,PageRank,2.60599480167438e-05,0.0542040184944785
+Cora,LabelStratifiedKFold,8,3,Eigenvector Centrality,0.0007073283709266,0.0440623796819685
+Cora,LabelStratifiedKFold,8,3,Clustering Coefficient,0.011476856050635,0.035321114984003
+Cora,LabelStratifiedKFold,8,4,Degree,0.4235725429416389,0.0367101208089413
+Cora,LabelStratifiedKFold,8,4,Neighborhood Heterogeneity,0.0157499245012471,0.0335745304078058
+Cora,LabelStratifiedKFold,8,4,PageRank,3.474676805072626e-05,0.0371511165209618
+Cora,LabelStratifiedKFold,8,4,Eigenvector Centrality,0.0007931765979376,0.041880091815819
+Cora,LabelStratifiedKFold,8,4,Clustering Coefficient,0.0051310116635656,0.0130908340278091
+Cora,LabelStratifiedKFold,8,5,Degree,0.5600372585932331,0.0135437715966347
+Cora,LabelStratifiedKFold,8,5,Neighborhood Heterogeneity,0.0231609641807837,0.0400751654586909
+Cora,LabelStratifiedKFold,8,5,PageRank,4.366993010461133e-05,0.0305975961042251
+Cora,LabelStratifiedKFold,8,5,Eigenvector Centrality,0.0013775139083992,0.028349968055533
+Cora,LabelStratifiedKFold,8,5,Clustering Coefficient,0.0143071517235634,0.0507904229720381
+Cora,LabelStratifiedKFold,9,1,Degree,0.440133154794148,0.0317349987904311
+Cora,LabelStratifiedKFold,9,1,Neighborhood Heterogeneity,0.0094542329230554,0.025203326825512
+Cora,LabelStratifiedKFold,9,1,PageRank,3.3853297080509765e-05,0.0538786274289335
+Cora,LabelStratifiedKFold,9,1,Eigenvector Centrality,0.00130418256726,0.0696302807903425
+Cora,LabelStratifiedKFold,9,1,Clustering Coefficient,0.0101540954589588,0.0365681634655681
+Cora,LabelStratifiedKFold,9,2,Degree,0.2317976919381378,0.0266156262670659
+Cora,LabelStratifiedKFold,9,2,Neighborhood Heterogeneity,0.0128899786999721,0.0287468525654785
+Cora,LabelStratifiedKFold,9,2,PageRank,1.6464006253556074e-05,0.0261897217310123
+Cora,LabelStratifiedKFold,9,2,Eigenvector Centrality,0.0006027565084527,0.0309002258997659
+Cora,LabelStratifiedKFold,9,2,Clustering Coefficient,0.0100700385750304,0.033091078833226
+Cora,LabelStratifiedKFold,9,3,Degree,0.2508032559549965,0.0328525722930359
+Cora,LabelStratifiedKFold,9,3,Neighborhood Heterogeneity,0.0139912949938785,0.0224485762863168
+Cora,LabelStratifiedKFold,9,3,PageRank,2.281658410046646e-05,0.0558871932209626
+Cora,LabelStratifiedKFold,9,3,Eigenvector Centrality,0.0007548952288083,0.0315305646131253
+Cora,LabelStratifiedKFold,9,3,Clustering Coefficient,0.0170640505417721,0.0346396677263171
+Cora,LabelStratifiedKFold,9,4,Degree,0.2603683039236693,0.0233471830439281
+Cora,LabelStratifiedKFold,9,4,Neighborhood Heterogeneity,0.0110635526820947,0.0295552426030859
+Cora,LabelStratifiedKFold,9,4,PageRank,1.848210158874129e-05,0.0297301055063048
+Cora,LabelStratifiedKFold,9,4,Eigenvector Centrality,0.000585395407185,0.0438667049943404
+Cora,LabelStratifiedKFold,9,4,Clustering Coefficient,0.0055148695992405,0.0131761330049891
+Cora,LabelStratifiedKFold,9,5,Degree,0.370850951126246,0.0197603610535106
+Cora,LabelStratifiedKFold,9,5,Neighborhood Heterogeneity,0.0051529489857372,0.0133919394172544
+Cora,LabelStratifiedKFold,9,5,PageRank,2.6015224451864193e-05,0.0272206095976703
+Cora,LabelStratifiedKFold,9,5,Eigenvector Centrality,0.0006048212897238,0.0394388350889284
+Cora,LabelStratifiedKFold,9,5,Clustering Coefficient,0.0154741476597816,0.0264307410689838
+chameleon,LabelStratifiedKFold,0,1,Degree,3.539509812422324,0.0353514552443712
+chameleon,LabelStratifiedKFold,0,1,Neighborhood Heterogeneity,0.0106477946217817,0.0235194658805167
+chameleon,LabelStratifiedKFold,0,1,PageRank,6.900884200251269e-05,0.0501929246510014
+chameleon,LabelStratifiedKFold,0,1,Eigenvector Centrality,0.0006192414163505,0.0491452065088586
+chameleon,LabelStratifiedKFold,0,1,Clustering Coefficient,0.0089265105206223,0.0301381542819156
+chameleon,LabelStratifiedKFold,0,2,Degree,6.7164116014913535,0.0436067516402208
+chameleon,LabelStratifiedKFold,0,2,Neighborhood Heterogeneity,0.0091741032322059,0.0260484407063788
+chameleon,LabelStratifiedKFold,0,2,PageRank,9.430272140273396e-05,0.0394267175351888
+chameleon,LabelStratifiedKFold,0,2,Eigenvector Centrality,0.001585054046487,0.0505867221595999
+chameleon,LabelStratifiedKFold,0,2,Clustering Coefficient,0.0097050410861767,0.0284907078239255
+chameleon,LabelStratifiedKFold,0,3,Degree,2.5196004873282503,0.0567134292710582
+chameleon,LabelStratifiedKFold,0,3,Neighborhood Heterogeneity,0.0301902752705015,0.0591211203724924
+chameleon,LabelStratifiedKFold,0,3,PageRank,2.42361323034894e-05,0.0425012967274218
+chameleon,LabelStratifiedKFold,0,3,Eigenvector Centrality,0.0004631862505884,0.0611186837311974
+chameleon,LabelStratifiedKFold,0,3,Clustering Coefficient,0.0111098119385614,0.037203411297813
+chameleon,LabelStratifiedKFold,0,4,Degree,2.261002882956791,0.0504059058394953
+chameleon,LabelStratifiedKFold,0,4,Neighborhood Heterogeneity,0.0108211939456814,0.0305026477364567
+chameleon,LabelStratifiedKFold,0,4,PageRank,3.7261540115755934e-05,0.0387450091072484
+chameleon,LabelStratifiedKFold,0,4,Eigenvector Centrality,0.0003242757051625,0.0287596048298573
+chameleon,LabelStratifiedKFold,0,4,Clustering Coefficient,0.0140589507581961,0.046275678218598
+chameleon,LabelStratifiedKFold,0,5,Degree,1.8550475868807332,0.0276522599244882
+chameleon,LabelStratifiedKFold,0,5,Neighborhood Heterogeneity,0.0097379991151377,0.0210733284278838
+chameleon,LabelStratifiedKFold,0,5,PageRank,3.801995483756939e-05,0.0446544673767505
+chameleon,LabelStratifiedKFold,0,5,Eigenvector Centrality,0.0019749481935598,0.0477026815116826
+chameleon,LabelStratifiedKFold,0,5,Clustering Coefficient,0.0204390247175415,0.0431261384060505
+chameleon,LabelStratifiedKFold,1,1,Degree,2.5639758374519404,0.025054914881933
+chameleon,LabelStratifiedKFold,1,1,Neighborhood Heterogeneity,0.0065272240349307,0.014332061620278
+chameleon,LabelStratifiedKFold,1,1,PageRank,4.056194964720111e-05,0.0319228879447382
+chameleon,LabelStratifiedKFold,1,1,Eigenvector Centrality,0.0006428244162732,0.0378334633948958
+chameleon,LabelStratifiedKFold,1,1,Clustering Coefficient,0.0264254564117541,0.0440728055724153
+chameleon,LabelStratifiedKFold,1,2,Degree,1.363330587589247,0.0191190496835168
+chameleon,LabelStratifiedKFold,1,2,Neighborhood Heterogeneity,0.013970081911619,0.024339576288332
+chameleon,LabelStratifiedKFold,1,2,PageRank,4.456078514389976e-05,0.0349106910604352
+chameleon,LabelStratifiedKFold,1,2,Eigenvector Centrality,0.0004175692023206,0.0335594959391889
+chameleon,LabelStratifiedKFold,1,2,Clustering Coefficient,0.0122261103146862,0.0277681435879649
+chameleon,LabelStratifiedKFold,1,3,Degree,1.6871617953945075,0.0276245159889506
+chameleon,LabelStratifiedKFold,1,3,Neighborhood Heterogeneity,0.0150935591853848,0.0470127018974439
+chameleon,LabelStratifiedKFold,1,3,PageRank,2.1788036082742655e-05,0.0249779857902799
+chameleon,LabelStratifiedKFold,1,3,Eigenvector Centrality,0.0005362788156711,0.0409174798856467
+chameleon,LabelStratifiedKFold,1,3,Clustering Coefficient,0.0122161884026942,0.0275847094727446
+chameleon,LabelStratifiedKFold,1,4,Degree,2.1339260081301754,0.0347402323253036
+chameleon,LabelStratifiedKFold,1,4,Neighborhood Heterogeneity,0.0181615625986513,0.0398390851738821
+chameleon,LabelStratifiedKFold,1,4,PageRank,3.0797668502410644e-05,0.0334181734840351
+chameleon,LabelStratifiedKFold,1,4,Eigenvector Centrality,0.0006558296336109,0.0577435736601488
+chameleon,LabelStratifiedKFold,1,4,Clustering Coefficient,0.0153987744758937,0.0336835502587423
+chameleon,LabelStratifiedKFold,1,5,Degree,1.89795659883475,0.0283265581838578
+chameleon,LabelStratifiedKFold,1,5,Neighborhood Heterogeneity,0.0191113015136174,0.0496495820315798
+chameleon,LabelStratifiedKFold,1,5,PageRank,3.672046616255221e-05,0.0341178031628086
+chameleon,LabelStratifiedKFold,1,5,Eigenvector Centrality,0.0007610601658093,0.0432395266643345
+chameleon,LabelStratifiedKFold,1,5,Clustering Coefficient,0.0190273065920266,0.0359054776178815
+chameleon,LabelStratifiedKFold,2,1,Degree,6.485082661348603,0.0521763634787132
+chameleon,LabelStratifiedKFold,2,1,Neighborhood Heterogeneity,0.0288736540356615,0.0635025578773953
+chameleon,LabelStratifiedKFold,2,1,PageRank,7.946783410601024e-05,0.0501242810485852
+chameleon,LabelStratifiedKFold,2,1,Eigenvector Centrality,0.0013120064585692,0.0407128818751987
+chameleon,LabelStratifiedKFold,2,1,Clustering Coefficient,0.0105390947912624,0.035152750079482
+chameleon,LabelStratifiedKFold,2,2,Degree,2.6629021069973,0.046699326570132
+chameleon,LabelStratifiedKFold,2,2,Neighborhood Heterogeneity,0.0097058834068564,0.0291988207751669
+chameleon,LabelStratifiedKFold,2,2,PageRank,4.763602752076178e-05,0.0566996155958264
+chameleon,LabelStratifiedKFold,2,2,Eigenvector Centrality,0.0025987268792985,0.0851072285326165
+chameleon,LabelStratifiedKFold,2,2,Clustering Coefficient,0.0160277790881144,0.0502398913263389
+chameleon,LabelStratifiedKFold,2,3,Degree,3.583668472032916,0.029877806057828
+chameleon,LabelStratifiedKFold,2,3,Neighborhood Heterogeneity,0.0119042158210323,0.0342094787758893
+chameleon,LabelStratifiedKFold,2,3,PageRank,4.899463607632716e-05,0.0606554806335267
+chameleon,LabelStratifiedKFold,2,3,Eigenvector Centrality,0.000858183470726,0.0472937600270201
+chameleon,LabelStratifiedKFold,2,3,Clustering Coefficient,0.0173390299887896,0.0597869748253941
+chameleon,LabelStratifiedKFold,2,4,Degree,4.06008009553564,0.0476592562212759
+chameleon,LabelStratifiedKFold,2,4,Neighborhood Heterogeneity,0.0086865161456072,0.0381430863318898
+chameleon,LabelStratifiedKFold,2,4,PageRank,7.960652353988134e-05,0.0650510850291311
+chameleon,LabelStratifiedKFold,2,4,Eigenvector Centrality,0.0016498618834304,0.0828482165474481
+chameleon,LabelStratifiedKFold,2,4,Clustering Coefficient,0.0147387802361201,0.0350719532936876
+chameleon,LabelStratifiedKFold,2,5,Degree,2.1594492225666846,0.0216113195256993
+chameleon,LabelStratifiedKFold,2,5,Neighborhood Heterogeneity,0.0059850180092889,0.0249176728869374
+chameleon,LabelStratifiedKFold,2,5,PageRank,5.371604483896368e-05,0.0488438016429234
+chameleon,LabelStratifiedKFold,2,5,Eigenvector Centrality,0.0005493304125721,0.0393807071084787
+chameleon,LabelStratifiedKFold,2,5,Clustering Coefficient,0.0128459998037292,0.0360840038117754
+chameleon,LabelStratifiedKFold,3,1,Degree,2.8471740512731416,0.0279632359316743
+chameleon,LabelStratifiedKFold,3,1,Neighborhood Heterogeneity,0.0075474035868869,0.0271684152721176
+chameleon,LabelStratifiedKFold,3,1,PageRank,5.818043389358432e-05,0.0497232578976271
+chameleon,LabelStratifiedKFold,3,1,Eigenvector Centrality,0.0009106833697046,0.0524148096765802
+chameleon,LabelStratifiedKFold,3,1,Clustering Coefficient,0.0188284640034691,0.0400806381687332
+chameleon,LabelStratifiedKFold,3,2,Degree,2.1330385271250605,0.0194947830862163
+chameleon,LabelStratifiedKFold,3,2,Neighborhood Heterogeneity,0.0093794954683707,0.0333029856354229
+chameleon,LabelStratifiedKFold,3,2,PageRank,3.503149920481004e-05,0.0296468106014624
+chameleon,LabelStratifiedKFold,3,2,Eigenvector Centrality,0.0004880472609597,0.0289386976502211
+chameleon,LabelStratifiedKFold,3,2,Clustering Coefficient,0.0083216406347263,0.0261748894476719
+chameleon,LabelStratifiedKFold,3,3,Degree,2.0221529293977123,0.0458945006694732
+chameleon,LabelStratifiedKFold,3,3,Neighborhood Heterogeneity,0.01005565377415,0.0365013691029058
+chameleon,LabelStratifiedKFold,3,3,PageRank,2.6538154437351016e-05,0.0307294242530246
+chameleon,LabelStratifiedKFold,3,3,Eigenvector Centrality,0.0010458168293708,0.0416171095644202
+chameleon,LabelStratifiedKFold,3,3,Clustering Coefficient,0.0227902369819111,0.0529342227476146
+chameleon,LabelStratifiedKFold,3,4,Degree,2.2515470259707464,0.0213254363638556
+chameleon,LabelStratifiedKFold,3,4,Neighborhood Heterogeneity,0.0054337085854216,0.015500416159033
+chameleon,LabelStratifiedKFold,3,4,PageRank,3.492474919495572e-05,0.0237053835297523
+chameleon,LabelStratifiedKFold,3,4,Eigenvector Centrality,0.000429595680767,0.0484662428679991
+chameleon,LabelStratifiedKFold,3,4,Clustering Coefficient,0.0176017117744608,0.0390079733658218
+chameleon,LabelStratifiedKFold,3,5,Degree,3.370230757168196,0.0239538726915236
+chameleon,LabelStratifiedKFold,3,5,Neighborhood Heterogeneity,0.0044068987488733,0.015856262288754
+chameleon,LabelStratifiedKFold,3,5,PageRank,5.7075254202188025e-05,0.0323542538690727
+chameleon,LabelStratifiedKFold,3,5,Eigenvector Centrality,0.0006566687220627,0.0430308440187693
+chameleon,LabelStratifiedKFold,3,5,Clustering Coefficient,0.0144498484321664,0.0322215654817191
+chameleon,LabelStratifiedKFold,4,1,Degree,4.077115668082893,0.0473749241307552
+chameleon,LabelStratifiedKFold,4,1,Neighborhood Heterogeneity,0.0084366557066893,0.0253403277551374
+chameleon,LabelStratifiedKFold,4,1,PageRank,4.524453567783445e-05,0.051630827480563
+chameleon,LabelStratifiedKFold,4,1,Eigenvector Centrality,0.0024728562581248,0.0717975953062227
+chameleon,LabelStratifiedKFold,4,1,Clustering Coefficient,0.0114372160517663,0.0458503135928784
+chameleon,LabelStratifiedKFold,4,2,Degree,2.979963293736815,0.0228583196046128
+chameleon,LabelStratifiedKFold,4,2,Neighborhood Heterogeneity,0.0038577185955647,0.0185337726523887
+chameleon,LabelStratifiedKFold,4,2,PageRank,4.443603487422054e-05,0.0317169571374895
+chameleon,LabelStratifiedKFold,4,2,Eigenvector Centrality,0.0007477542824485,0.0251199456631694
+chameleon,LabelStratifiedKFold,4,2,Clustering Coefficient,0.016773712238825,0.0365906529090436
+chameleon,LabelStratifiedKFold,4,3,Degree,2.7150492756420417,0.0240696734659413
+chameleon,LabelStratifiedKFold,4,3,Neighborhood Heterogeneity,0.0030933236261808,0.0132977889289634
+chameleon,LabelStratifiedKFold,4,3,PageRank,4.381913423419495e-05,0.03744586916925
+chameleon,LabelStratifiedKFold,4,3,Eigenvector Centrality,0.0007240085572906,0.0314821292867396
+chameleon,LabelStratifiedKFold,4,3,Clustering Coefficient,0.0092896425356587,0.0266197030192639
+chameleon,LabelStratifiedKFold,4,4,Degree,3.060058382890442,0.0486351189973583
+chameleon,LabelStratifiedKFold,4,4,Neighborhood Heterogeneity,0.0136718977897378,0.0393047128502671
+chameleon,LabelStratifiedKFold,4,4,PageRank,4.55666536019519e-05,0.0636506194135173
+chameleon,LabelStratifiedKFold,4,4,Eigenvector Centrality,0.0012186751936711,0.0422359199527146
+chameleon,LabelStratifiedKFold,4,4,Clustering Coefficient,0.0130553217239306,0.0354905248428848
+chameleon,LabelStratifiedKFold,4,5,Degree,1.6123701764755536,0.017902075970133
+chameleon,LabelStratifiedKFold,4,5,Neighborhood Heterogeneity,0.0151478560146071,0.0315159045126114
+chameleon,LabelStratifiedKFold,4,5,PageRank,2.502702284342078e-05,0.0460127139600246
+chameleon,LabelStratifiedKFold,4,5,Eigenvector Centrality,0.0013167376038965,0.0473902606723682
+chameleon,LabelStratifiedKFold,4,5,Clustering Coefficient,0.0133262715602186,0.0336546000651379
+chameleon,LabelStratifiedKFold,5,1,Degree,4.2063498945056175,0.0351455244371224
+chameleon,LabelStratifiedKFold,5,1,Neighborhood Heterogeneity,0.0088870450837074,0.0226993554727015
+chameleon,LabelStratifiedKFold,5,1,PageRank,5.275350136845595e-05,0.0661363045174716
+chameleon,LabelStratifiedKFold,5,1,Eigenvector Centrality,0.0016487241320597,0.0516272146593832
+chameleon,LabelStratifiedKFold,5,1,Clustering Coefficient,0.0209644082594982,0.0424181334720656
+chameleon,LabelStratifiedKFold,5,2,Degree,3.819973120610417,0.0342856729963293
+chameleon,LabelStratifiedKFold,5,2,Neighborhood Heterogeneity,0.0084626954917739,0.0272189947686349
+chameleon,LabelStratifiedKFold,5,2,PageRank,3.513671438878852e-05,0.0510636145553339
+chameleon,LabelStratifiedKFold,5,2,Eigenvector Centrality,0.0012087183893575,0.0518620480360704
+chameleon,LabelStratifiedKFold,5,2,Clustering Coefficient,0.0075194359553335,0.0223344605335414
+chameleon,LabelStratifiedKFold,5,3,Degree,1.7660100601922852,0.011797203893801
+chameleon,LabelStratifiedKFold,5,3,Neighborhood Heterogeneity,0.0046415933033453,0.0177850689376485
+chameleon,LabelStratifiedKFold,5,3,PageRank,4.778535332810104e-05,0.0326570246438523
+chameleon,LabelStratifiedKFold,5,3,Eigenvector Centrality,0.0008255234630707,0.0369826660715793
+chameleon,LabelStratifiedKFold,5,3,Clustering Coefficient,0.0368611273266652,0.0639208212204919
+chameleon,LabelStratifiedKFold,5,4,Degree,2.544603804537938,0.0403396822716251
+chameleon,LabelStratifiedKFold,5,4,Neighborhood Heterogeneity,0.0107429950643526,0.0436593044715986
+chameleon,LabelStratifiedKFold,5,4,PageRank,3.3745882077925035e-05,0.045572429765624
+chameleon,LabelStratifiedKFold,5,4,Eigenvector Centrality,0.0005859158693992,0.044424072085982
+chameleon,LabelStratifiedKFold,5,4,Clustering Coefficient,0.0312557290334321,0.0827589534505012
+chameleon,LabelStratifiedKFold,5,5,Degree,2.4351624226486996,0.0458824380888047
+chameleon,LabelStratifiedKFold,5,5,Neighborhood Heterogeneity,0.0059015359711812,0.0196378813283313
+chameleon,LabelStratifiedKFold,5,5,PageRank,3.650631271351882e-05,0.0373686686529716
+chameleon,LabelStratifiedKFold,5,5,Eigenvector Centrality,0.0004584811079128,0.0448908939578533
+chameleon,LabelStratifiedKFold,5,5,Clustering Coefficient,0.0209912959379803,0.0500572972581754
+chameleon,LabelStratifiedKFold,6,1,Degree,2.281417092979555,0.0304633081880979
+chameleon,LabelStratifiedKFold,6,1,Neighborhood Heterogeneity,0.0140253865380664,0.0365400734125263
+chameleon,LabelStratifiedKFold,6,1,PageRank,3.711625275909006e-05,0.0291843694904477
+chameleon,LabelStratifiedKFold,6,1,Eigenvector Centrality,0.0004383178296412,0.0247586635451891
+chameleon,LabelStratifiedKFold,6,1,Clustering Coefficient,0.0290294940299223,0.0509949709529177
+chameleon,LabelStratifiedKFold,6,2,Degree,2.077831006676497,0.0355646116939795
+chameleon,LabelStratifiedKFold,6,2,Neighborhood Heterogeneity,0.0096931405850058,0.0348890141333564
+chameleon,LabelStratifiedKFold,6,2,PageRank,5.489879380028331e-05,0.0327899650278909
+chameleon,LabelStratifiedKFold,6,2,Eigenvector Centrality,0.0012909412021434,0.0476386600768808
+chameleon,LabelStratifiedKFold,6,2,Clustering Coefficient,0.0352693704914788,0.0669636405676464
+chameleon,LabelStratifiedKFold,6,3,Degree,2.6498848023546246,0.0184159419066115
+chameleon,LabelStratifiedKFold,6,3,Neighborhood Heterogeneity,0.0163738395313598,0.0452515651198417
+chameleon,LabelStratifiedKFold,6,3,PageRank,4.397028908922046e-05,0.0324724671596241
+chameleon,LabelStratifiedKFold,6,3,Eigenvector Centrality,0.0005430504882228,0.0289079745720799
+chameleon,LabelStratifiedKFold,6,3,Clustering Coefficient,0.010222784948401,0.0293060397341407
+chameleon,LabelStratifiedKFold,6,4,Degree,2.2591500705661014,0.0376545518148152
+chameleon,LabelStratifiedKFold,6,4,Neighborhood Heterogeneity,0.0117696075658859,0.0375797638146705
+chameleon,LabelStratifiedKFold,6,4,PageRank,5.150333626684215e-05,0.0313566784477871
+chameleon,LabelStratifiedKFold,6,4,Eigenvector Centrality,0.0010917310117089,0.034268585421165
+chameleon,LabelStratifiedKFold,6,4,Clustering Coefficient,0.0128383039617422,0.0437678676976152
+chameleon,LabelStratifiedKFold,6,5,Degree,4.088462141590552,0.021006984234207
+chameleon,LabelStratifiedKFold,6,5,Neighborhood Heterogeneity,0.0058674859463357,0.0185160613261601
+chameleon,LabelStratifiedKFold,6,5,PageRank,9.979813184398534e-05,0.0366316449741257
+chameleon,LabelStratifiedKFold,6,5,Eigenvector Centrality,0.0020441759404158,0.0523528063593925
+chameleon,LabelStratifiedKFold,6,5,Clustering Coefficient,0.0080335368736973,0.0249104353385363
+chameleon,LabelStratifiedKFold,7,1,Degree,3.510889043035919,0.0344337986647012
+chameleon,LabelStratifiedKFold,7,1,Neighborhood Heterogeneity,0.0104303366256752,0.0218431168530882
+chameleon,LabelStratifiedKFold,7,1,PageRank,5.643017587426844e-05,0.053444463712824
+chameleon,LabelStratifiedKFold,7,1,Eigenvector Centrality,0.0006015585453394,0.0214709962715685
+chameleon,LabelStratifiedKFold,7,1,Clustering Coefficient,0.0125395186931463,0.0297118413826989
+chameleon,LabelStratifiedKFold,7,2,Degree,3.784314575565767,0.0425409693921789
+chameleon,LabelStratifiedKFold,7,2,Neighborhood Heterogeneity,0.0079461066648711,0.0221610451169108
+chameleon,LabelStratifiedKFold,7,2,PageRank,7.376213722323286e-05,0.053462527818723
+chameleon,LabelStratifiedKFold,7,2,Eigenvector Centrality,0.0005073779282019,0.0417533743749819
+chameleon,LabelStratifiedKFold,7,2,Clustering Coefficient,0.0112376812935589,0.0363522067111766
+chameleon,LabelStratifiedKFold,7,3,Degree,3.780936297511486,0.0388668411720003
+chameleon,LabelStratifiedKFold,7,3,Neighborhood Heterogeneity,0.0058152013222068,0.017295328162507
+chameleon,LabelStratifiedKFold,7,3,PageRank,4.8753664327417335e-05,0.0371648110396738
+chameleon,LabelStratifiedKFold,7,3,Eigenvector Centrality,0.0006078377504284,0.0392371623985235
+chameleon,LabelStratifiedKFold,7,3,Clustering Coefficient,0.0258798160016306,0.0583141337257692
+chameleon,LabelStratifiedKFold,7,4,Degree,3.5324845297402905,0.0332951351612163
+chameleon,LabelStratifiedKFold,7,4,Neighborhood Heterogeneity,0.0081586986141358,0.0282951954741197
+chameleon,LabelStratifiedKFold,7,4,PageRank,5.779897267795335e-05,0.0539402419753682
+chameleon,LabelStratifiedKFold,7,4,Eigenvector Centrality,0.0010980745764964,0.0739387944656879
+chameleon,LabelStratifiedKFold,7,4,Clustering Coefficient,0.011091093443685,0.0284073774743368
+chameleon,LabelStratifiedKFold,7,5,Degree,3.3694008516181997,0.0358391334242047
+chameleon,LabelStratifiedKFold,7,5,Neighborhood Heterogeneity,0.0153452274867274,0.0334314423227705
+chameleon,LabelStratifiedKFold,7,5,PageRank,5.112175182880686e-05,0.0718736806552393
+chameleon,LabelStratifiedKFold,7,5,Eigenvector Centrality,0.0009517266524491,0.062908770702404
+chameleon,LabelStratifiedKFold,7,5,Clustering Coefficient,0.0162696125432053,0.0521585988106295
+chameleon,LabelStratifiedKFold,8,1,Degree,3.2415749010087076,0.01686103644614
+chameleon,LabelStratifiedKFold,8,1,Neighborhood Heterogeneity,0.0060795197677581,0.0204341165929651
+chameleon,LabelStratifiedKFold,8,1,PageRank,5.015891450745607e-05,0.0415185409982947
+chameleon,LabelStratifiedKFold,8,1,Eigenvector Centrality,0.0006003001569775,0.0396326483424376
+chameleon,LabelStratifiedKFold,8,1,Clustering Coefficient,0.0161401894919438,0.0380791352351224
+chameleon,LabelStratifiedKFold,8,2,Degree,1.5462946905979944,0.0547667562646319
+chameleon,LabelStratifiedKFold,8,2,Neighborhood Heterogeneity,0.0229201717326429,0.0408068152258735
+chameleon,LabelStratifiedKFold,8,2,PageRank,3.0752609995835845e-05,0.0328297060608688
+chameleon,LabelStratifiedKFold,8,2,Eigenvector Centrality,0.0005265924979608,0.0538093586519841
+chameleon,LabelStratifiedKFold,8,2,Clustering Coefficient,0.0177046079240794,0.0432057284892627
+chameleon,LabelStratifiedKFold,8,3,Degree,2.3900290708194065,0.0358644648436086
+chameleon,LabelStratifiedKFold,8,3,Neighborhood Heterogeneity,0.0087875832122195,0.0359778531018926
+chameleon,LabelStratifiedKFold,8,3,PageRank,3.4748512258286896e-05,0.0341407220660788
+chameleon,LabelStratifiedKFold,8,3,Eigenvector Centrality,0.0009522022625777,0.0486013437714864
+chameleon,LabelStratifiedKFold,8,3,Clustering Coefficient,0.0117092550745128,0.0358548147790738
+chameleon,LabelStratifiedKFold,8,4,Degree,3.2613551103123104,0.0347402323253036
+chameleon,LabelStratifiedKFold,8,4,Neighborhood Heterogeneity,0.0094826645762692,0.0223507557206788
+chameleon,LabelStratifiedKFold,8,4,PageRank,4.758320661933426e-05,0.0317571561259815
+chameleon,LabelStratifiedKFold,8,4,Eigenvector Centrality,0.0011549563566901,0.030532804188128
+chameleon,LabelStratifiedKFold,8,4,Clustering Coefficient,0.0208712321787968,0.0549366111385869
+chameleon,LabelStratifiedKFold,8,5,Degree,2.9130577435736624,0.0286920543781136
+chameleon,LabelStratifiedKFold,8,5,Neighborhood Heterogeneity,0.0111675395400213,0.0272155945042882
+chameleon,LabelStratifiedKFold,8,5,PageRank,4.9941743594531214e-05,0.0346364941315545
+chameleon,LabelStratifiedKFold,8,5,Eigenvector Centrality,0.000522436343194,0.0418969614359296
+chameleon,LabelStratifiedKFold,8,5,Clustering Coefficient,0.0133377458459176,0.0369054655553009
+chameleon,LabelStratifiedKFold,9,1,Degree,2.9220858984363605,0.0306656261741668
+chameleon,LabelStratifiedKFold,9,1,Neighborhood Heterogeneity,0.0056373888785663,0.0122366253359923
+chameleon,LabelStratifiedKFold,9,1,PageRank,5.2286172601408894e-05,0.0386282840544524
+chameleon,LabelStratifiedKFold,9,1,Eigenvector Centrality,0.0005646461632749,0.0388992456429376
+chameleon,LabelStratifiedKFold,9,1,Clustering Coefficient,0.0248805196736492,0.0645647273042573
+chameleon,LabelStratifiedKFold,9,2,Degree,2.77775730512442,0.0492824937136911
+chameleon,LabelStratifiedKFold,9,2,Neighborhood Heterogeneity,0.0218086688939831,0.0412511922309893
+chameleon,LabelStratifiedKFold,9,2,PageRank,3.9733681216110255e-05,0.0216191219399404
+chameleon,LabelStratifiedKFold,9,2,Eigenvector Centrality,0.0012739159498177,0.0335378190121101
+chameleon,LabelStratifiedKFold,9,2,Clustering Coefficient,0.0214145741026113,0.0438813260498858
+chameleon,LabelStratifiedKFold,9,3,Degree,4.104660981170319,0.0594854103086814
+chameleon,LabelStratifiedKFold,9,3,Neighborhood Heterogeneity,0.0117751680485434,0.0191734719725938
+chameleon,LabelStratifiedKFold,9,3,PageRank,6.1653602932756e-05,0.0475627555759279
+chameleon,LabelStratifiedKFold,9,3,Eigenvector Centrality,0.0008428328304108,0.0294121904440235
+chameleon,LabelStratifiedKFold,9,3,Clustering Coefficient,0.0138815969227056,0.0443613466665058
+chameleon,LabelStratifiedKFold,9,4,Degree,2.8784803560873895,0.0484734804164002
+chameleon,LabelStratifiedKFold,9,4,Neighborhood Heterogeneity,0.00653853578274,0.0256124775334435
+chameleon,LabelStratifiedKFold,9,4,PageRank,4.245270613907796e-05,0.045637567701234
+chameleon,LabelStratifiedKFold,9,4,Eigenvector Centrality,0.0006529413763201,0.0630269839929554
+chameleon,LabelStratifiedKFold,9,4,Clustering Coefficient,0.0104916429695302,0.0468269381551489
+chameleon,LabelStratifiedKFold,9,5,Degree,1.427675178827756,0.0147465048672512
+chameleon,LabelStratifiedKFold,9,5,Neighborhood Heterogeneity,0.0081131044977428,0.0271794067622827
+chameleon,LabelStratifiedKFold,9,5,PageRank,2.954285690894232e-05,0.0305858795430694
+chameleon,LabelStratifiedKFold,9,5,Eigenvector Centrality,0.0020929910082748,0.0650378161903957
+chameleon,LabelStratifiedKFold,9,5,Clustering Coefficient,0.0152713319814198,0.0396171336895815

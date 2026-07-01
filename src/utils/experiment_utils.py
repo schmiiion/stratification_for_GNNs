@@ -17,6 +17,8 @@ DATASET_ABBREVIATIONS = {
     "squirrel": "SQUIR",
     "squirrel_filtered": "SQUIRF",
     "squirrel-filtered": "SQUIRF",
+    "syn-cora": "SYN-CORA",
+    "syn_cora": "SYN-CORA",
     "texas": "TX",
     "wisconsin": "WIS",
 }
