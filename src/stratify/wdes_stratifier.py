@@ -48,8 +48,8 @@ class WDESKFold(BaseNodeStratifier):
         if method == "sklearn":
             return "sklearn"
         raise ValueError(
-            "sampling_method must be 'ga' or 'sklearn'. Use skf_num_bins with one "
-            "value when you want a fixed sklearn bin count."
+            "sampling_method must be 'ga' or 'sklearn'. Configure skf_num_bins "
+            "with one or more candidate bin counts for scalar sklearn properties."
         )
 
     def get_folds(self, data):
@@ -164,10 +164,7 @@ class WDESKFold(BaseNodeStratifier):
 
         self.selected_skf_num_bins = best_bins
         self.selected_skf_target_emd = best_score
-        self.stratification_method = (
-            f"Sklearn_{self.PROPERTY_METHOD_NAMES[self.property_name]}"
-            f"_b{best_bins}"
-        )
+        self.stratification_method = f"Sklearn_{self.PROPERTY_METHOD_NAMES[self.property_name]}"
         self.optimization_stop_time = datetime.now().isoformat(timespec="seconds")
         self.optimization_seconds = perf_counter() - start_counter
 

@@ -15,6 +15,30 @@ def _as_numpy_edge_index(edge_index):
     return np.asarray(edge_index, dtype=np.int64)
 
 
+def compute_graph_size_summary(edge_index, num_nodes):
+    edge_index = _as_numpy_edge_index(edge_index)
+    num_nodes = int(num_nodes)
+    if edge_index.size == 0 or num_nodes == 0:
+        return {
+            "num_nodes": num_nodes,
+            "directed_edges": 0,
+            "undirected_edges": 0,
+            "average_degree": 0.0,
+        }
+
+    edge_pairs = edge_index.T
+    unordered_edges = np.sort(edge_pairs, axis=1)
+    unique_undirected_edges = np.unique(unordered_edges, axis=0)
+    num_undirected_edges = int(unique_undirected_edges.shape[0])
+
+    return {
+        "num_nodes": num_nodes,
+        "directed_edges": int(edge_pairs.shape[0]),
+        "undirected_edges": num_undirected_edges,
+        "average_degree": float(2 * num_undirected_edges / num_nodes),
+    }
+
+
 def _entropy(probabilities):
     probabilities = np.asarray(probabilities, dtype=float)
     probabilities = probabilities[probabilities > 0]

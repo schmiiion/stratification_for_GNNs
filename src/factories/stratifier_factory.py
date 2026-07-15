@@ -59,6 +59,7 @@ def get_property_variants(cfg, property_name, seed, data=None):
             seed=seed,
             reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
             min_cluster_size=cfg_get(cfg, "num_folds", 5),
+            complexity_penalty=cfg_get(cfg, "propagated_label_gap_complexity_penalty", 0.10),
         )
         print(f"Gap statistic selected propagated-label cluster counts: {cluster_counts}")
     else:

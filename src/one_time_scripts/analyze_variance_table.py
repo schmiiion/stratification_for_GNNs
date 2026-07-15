@@ -1,5 +1,7 @@
 from pathlib import Path
+import re
 import sys
+import textwrap
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,9 +14,10 @@ if str(SRC_ROOT) not in sys.path:
 
 from utils.dataset_reference_metrics import dataset_metric_summary
 
-RUN_METRICS_FILE = PROJECT_ROOT / "src/logs/runs/0522-1916_RunMetrics_CORA-CITE-CHAM-ACT-TX.csv"
+RUN_METRICS_FILE = PROJECT_ROOT / "src/logs/runs/0702-0900_RunMetrics_SQUIR-WIS.csv"
 
-DATASET_ORDER = ["Cora", "CiteSeer", "chameleon", "Actor", "Texas"]
+# DATASET_ORDER = ["Cora", "CiteSeer", "chameleon", "Actor", "Texas"]
+DATASET_ORDER = ["squirrel"]
 MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN", "MLP"]
 STRATIFIER_ORDER = [
     "RandomKFold",
@@ -42,6 +45,7 @@ PROPERTY_ORDER = {
     "PageRank": 2,
     "EigCentrality": 3,
     "Clustering": 4,
+    "PropLabelCluster": 5,
 }
 
 PROPERTY_LABELS = {
@@ -50,6 +54,7 @@ PROPERTY_LABELS = {
     "PageRank": "PageRank",
     "EigCentrality": "Eigenvector",
     "Clustering": "Clustering",
+    "PropLabelCluster": "Prop. label",
 }
 
 
@@ -65,7 +70,21 @@ def stratifier_sort_key(stratifier):
         except ValueError:
             selected_bins = 0
         return (1, PROPERTY_ORDER.get(property_name, 99), selected_bins, stratifier)
+    if stratifier.startswith("SklearnCategorical_"):
+        match = re.match(r"SklearnCategorical_(?P<property>.+?)(?:_k(?P<k>\d+))?$", stratifier)
+        property_name = match.group("property") if match else ""
+        selected_k = int(match.group("k")) if match and match.group("k") else 0
+        return (1, PROPERTY_ORDER.get(property_name, 99), selected_k, stratifier)
+    if stratifier.startswith("Sklearn_"):
+        match = re.match(r"Sklearn_(?P<property>.+?)(?:_b(?P<bins>\d+))?$", stratifier)
+        property_name = match.group("property") if match else ""
+        selected_bins = int(match.group("bins")) if match and match.group("bins") else 0
+        return (1, PROPERTY_ORDER.get(property_name, 99), selected_bins, stratifier)
     return (2, 99, 0, stratifier)
+
+
+def wrap_label(label, width=12):
+    return "\n".join(textwrap.wrap(label, width=width, break_long_words=False))
 
 
 def stratifier_label(stratifier):
@@ -77,7 +96,19 @@ def stratifier_label(stratifier):
         bin_part = parts[2] if len(parts) > 2 and parts[2].startswith("b") else ""
         label = PROPERTY_LABELS.get(property_name, property_name)
         return f"SKF dyn.\n{label}\n{bin_part}" if bin_part else f"SKF dyn.\n{label}"
-    return stratifier
+    if stratifier.startswith("SklearnCategorical_"):
+        match = re.match(r"SklearnCategorical_(?P<property>.+?)(?:_k(?P<k>\d+))?$", stratifier)
+        if match:
+            property_label = PROPERTY_LABELS.get(match.group("property"), match.group("property"))
+            k_label = f"k={match.group('k')}" if match.group("k") else ""
+            return "\n".join(part for part in ["SKF cat.", wrap_label(property_label), k_label] if part)
+    if stratifier.startswith("Sklearn_"):
+        match = re.match(r"Sklearn_(?P<property>.+?)(?:_b(?P<bins>\d+))?$", stratifier)
+        if match:
+            property_label = PROPERTY_LABELS.get(match.group("property"), match.group("property"))
+            bin_label = f"b={match.group('bins')}" if match.group("bins") else ""
+            return "\n".join(part for part in ["SKF", wrap_label(property_label), bin_label] if part)
+    return wrap_label(stratifier)
 
 
 df = pd.read_csv(RUN_METRICS_FILE)
@@ -103,7 +134,6 @@ stats = (
         N=("Std", "size"),
     )
 )
-stratifiers = sorted(stats["StratificationType"].unique(), key=stratifier_sort_key)
 
 datasets = [dataset for dataset in DATASET_ORDER if dataset in stats["Dataset"].unique()]
 datasets += [
@@ -115,6 +145,10 @@ datasets += [
 for dataset in datasets:
     dataset_stats = stats[stats["Dataset"] == dataset]
     models = [model for model in MODEL_ORDER if model in dataset_stats["Model"].unique()]
+    stratifiers = sorted(
+        dataset_stats[dataset_stats["Model"].isin(models)]["StratificationType"].unique(),
+        key=stratifier_sort_key,
+    )
     table_rows = []
     bold_cells = set()
     for row_idx, model in enumerate(models, start=1):

@@ -1,5 +1,5 @@
 #init_seeds: [100,101,102,103,104,105,106,107,108,109]
-init_seeds: [100,101]
+init_seeds: [100]
 #  ,110,111,112,113,114,115,116,117,118,119]
 
 #fixed by our problem definition
@@ -18,7 +18,7 @@ stratification_types: ["random", "label", "property"] #["property"]
 #properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]
 properties: ["Neighborhood Heterogeneity", "Propagated Label Cluster"]
 sampling_method: "sklearn" # "ga" or "sklearn"
-skf_num_bins: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
+skf_num_bins: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500] # scalar sklearn candidates; best EMD is used
 
 #ga - hyperparams
 wdes_n_gen: 50
@@ -34,6 +34,7 @@ propagated_label_cluster_selection: "gap_topk" # "fixed" or "gap_topk"
 propagated_label_cluster_candidates: [5, 10, 20, 30, 40, 50, 75, 100]
 propagated_label_gap_top_k: 3
 propagated_label_gap_reference_runs: 5
+propagated_label_gap_complexity_penalty: 0.10
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
 
 #logging of stratification properties
@@ -54,15 +55,15 @@ datasets: [
 #   "Cora",
 #    "CiteSeer",
 #    "PubMed",
-#    "Computers",
-#    "Photo",
+    "Computers",
+    "Photo",
 #    "chameleon",
 #   "squirrel",
 #    "crocodile",
-    "actor",
-   "Texas",
+#    "actor",
+#   "Texas",
 #   "wisconsin",
-    "roman_empire",
+#    "roman_empire",
 #     "syn-cora",
 ]
 

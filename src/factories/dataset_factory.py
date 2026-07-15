@@ -19,6 +19,7 @@ from torch_geometric.utils import (
 
 from utils.graph_characteristics import (
     compute_edge_label_informativeness,
+    compute_graph_size_summary,
     compute_node_label_informativeness,
 )
 from utils.dataset_reference_metrics import sanity_check_label_informativeness
@@ -367,6 +368,9 @@ class DatasetFactory:
 
     @staticmethod
     def attach_graph_characteristics(data, dataset_name=None):
+        data.graph_size_summary = compute_graph_size_summary(data.edge_index, data.num_nodes)
+        data.num_undirected_edges = data.graph_size_summary["undirected_edges"]
+        data.average_degree = data.graph_size_summary["average_degree"]
         data.label_informativeness_edge = compute_edge_label_informativeness(
             data.edge_index,
             data.y,
@@ -377,6 +381,8 @@ class DatasetFactory:
             data.num_nodes,
         )
 
+        print(f"Undirected edges: {data.num_undirected_edges}")
+        print(f"Average degree: {data.average_degree:.2f}")
         print(f"LI_edge: {data.label_informativeness_edge:.4f}")
         print(f"LI_node: {data.label_informativeness_node:.4f}")
         if dataset_name is not None:

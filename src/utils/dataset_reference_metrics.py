@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 import warnings
 
+from utils.graph_characteristics import compute_graph_size_summary
+
 
 SRC_ROOT = Path(__file__).resolve().parents[1]
 LI_REFERENCE_TOLERANCE = 0.02
@@ -112,6 +114,19 @@ def platonov_dataset_characteristics(dataset_name):
     return PLATONOV_DATASET_CHARACTERISTICS.get(canonical_dataset_key(dataset_name))
 
 
+def _dataset_kwargs(dataset_name):
+    syn_cora = parse_syn_cora_name(dataset_name)
+    if syn_cora is None:
+        return {"name": dataset_name}
+
+    homophily, realization = syn_cora
+    return {
+        "name": "syn-cora",
+        "syn_cora_homophily": 0.70 if homophily is None else homophily,
+        "syn_cora_realization": 1 if realization is None else realization,
+    }
+
+
 def sanity_check_label_informativeness(
     dataset_name,
     li_edge,
@@ -149,30 +164,69 @@ def sanity_check_label_informativeness(
 
 
 @lru_cache(maxsize=None)
-def dataset_label_informativeness(dataset_name):
+def computed_dataset_characteristics(dataset_name):
     from factories.dataset_factory import DatasetFactory
-
-    syn_cora = parse_syn_cora_name(dataset_name)
-    if syn_cora is None:
-        dataset_kwargs = {"name": dataset_name}
-    else:
-        homophily, realization = syn_cora
-        dataset_kwargs = {
-            "name": "syn-cora",
-            "syn_cora_homophily": 0.70 if homophily is None else homophily,
-            "syn_cora_realization": 1 if realization is None else realization,
-        }
 
     with contextlib.redirect_stdout(io.StringIO()):
         _, _, _, data = DatasetFactory.get_dataset(
             root_dir=str(SRC_ROOT / "data"),
-            **dataset_kwargs,
+            **_dataset_kwargs(dataset_name),
         )
 
     li_edge = getattr(data, "label_informativeness_edge", None)
     li_node = getattr(data, "label_informativeness_node", None)
+    graph_summary = getattr(data, "graph_size_summary", None)
+    if graph_summary is None:
+        graph_summary = compute_graph_size_summary(data.edge_index, data.num_nodes)
+
     sanity_check_label_informativeness(dataset_name, li_edge, li_node)
-    return li_edge, li_node
+    return {
+        "li_edge": li_edge,
+        "li_node": li_node,
+        **graph_summary,
+    }
+
+
+@lru_cache(maxsize=None)
+def dataset_label_informativeness(dataset_name):
+    characteristics = computed_dataset_characteristics(dataset_name)
+    return characteristics["li_edge"], characteristics["li_node"]
+
+
+def dataset_graph_size_summary(dataset_name, data=None):
+    if data is not None:
+        graph_summary = getattr(data, "graph_size_summary", None)
+        if graph_summary is None:
+            graph_summary = compute_graph_size_summary(data.edge_index, data.num_nodes)
+        return graph_summary
+
+    reference = platonov_dataset_characteristics(dataset_name)
+    if reference is not None:
+        num_nodes = int(reference["n"])
+        num_edges = int(reference["edges"])
+        return {
+            "num_nodes": num_nodes,
+            "directed_edges": 2 * num_edges,
+            "undirected_edges": num_edges,
+            "average_degree": float(2 * num_edges / num_nodes),
+        }
+
+    characteristics = computed_dataset_characteristics(dataset_name)
+    return {
+        "num_nodes": characteristics["num_nodes"],
+        "directed_edges": characteristics["directed_edges"],
+        "undirected_edges": characteristics["undirected_edges"],
+        "average_degree": characteristics["average_degree"],
+    }
+
+
+def dataset_graph_size_text(dataset_name, data=None):
+    graph_summary = dataset_graph_size_summary(dataset_name, data)
+    return (
+        f"nodes={int(graph_summary['num_nodes'])} | "
+        f"edges={int(graph_summary['undirected_edges'])} | "
+        f"avg_deg={float(graph_summary['average_degree']):.2f}"
+    )
 
 
 def dataset_metric_summary(dataset_name, data=None):
@@ -188,7 +242,9 @@ def dataset_metric_summary(dataset_name, data=None):
         homophily_text = f"Zhu h={_format_metric(homophily)}"
 
     if data is None:
-        li_edge, li_node = dataset_label_informativeness(dataset_name)
+        characteristics = computed_dataset_characteristics(dataset_name)
+        li_edge = characteristics["li_edge"]
+        li_node = characteristics["li_node"]
     else:
         li_edge = getattr(data, "label_informativeness_edge", None)
         li_node = getattr(data, "label_informativeness_node", None)
@@ -196,6 +252,7 @@ def dataset_metric_summary(dataset_name, data=None):
 
     return (
         f"{homophily_text} | "
+        f"{dataset_graph_size_text(dataset_name, data)} | "
         f"LI_edge={_format_metric(li_edge)} | "
         f"LI_node={_format_metric(li_node)}"
     )
