@@ -12,12 +12,16 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from utils.dataset_reference_metrics import dataset_metric_summary
+from utils.dataset_reference_metrics import (
+    dataset_graph_size_text,
+    dataset_homophily_text,
+    dataset_li_text,
+)
 
-RUN_METRICS_FILE = PROJECT_ROOT / "src/logs/runs/0702-0900_RunMetrics_SQUIR-WIS.csv"
+RUN_METRICS_FILE = PROJECT_ROOT / "src/logs/runs/0715-0814_RunMetrics_PHOTO.csv"
 
 # DATASET_ORDER = ["Cora", "CiteSeer", "chameleon", "Actor", "Texas"]
-DATASET_ORDER = ["squirrel"]
+DATASET_ORDER = ["computer"]
 MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN", "MLP"]
 STRATIFIER_ORDER = [
     "RandomKFold",
@@ -175,19 +179,36 @@ for dataset in datasets:
     n_values = sorted(map(int, dataset_stats["N"].unique()))
     n_text = f"n={n_values[0]}" if len(n_values) == 1 else f"n={min(n_values)}-{max(n_values)}"
     fig_width = max(15, 2.35 * (len(stratifiers) + 1))
-    fig_height = max(6, 0.95 * len(models) + 2.4)
+    title_line = f"{dataset}: Accuracy Dispersion | {dataset_homophily_text(dataset)} | {n_text}"
+    metadata_line = f"{dataset_graph_size_text(dataset)} | {dataset_li_text(dataset)}"
+    fig_height = max(6.8, 0.95 * len(models) + 2.8)
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
     ax.axis("off")
 
-    fig.suptitle(
-        f"{dataset}: Accuracy Dispersion | {dataset_metric_summary(dataset)} | {n_text}",
+    fig.text(
+        0.5,
+        0.97,
+        title_line,
+        ha="center",
+        va="top",
         fontsize=18,
         fontweight="bold",
-        y=0.96,
     )
     fig.text(
         0.5,
-        0.89,
+        0.925,
+        metadata_line,
+        ha="center",
+        va="top",
+        fontsize=14,
+        fontweight="bold",
+    )
+    subtitle_y = 0.865
+    table_top = subtitle_y - 0.08
+    table_bottom = 0.05
+    fig.text(
+        0.5,
+        subtitle_y,
         "Each cell reports mean test accuracy and the mean std across the 5 folds. "
         "Bold marks the lowest mean fold-std within each model row.",
         ha="center",
@@ -201,7 +222,7 @@ for dataset in datasets:
         cellLoc="center",
         colLoc="center",
         loc="center",
-        bbox=[0.02, 0.05, 0.96, 0.76],
+        bbox=[0.02, table_bottom, 0.96, table_top - table_bottom],
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
@@ -211,6 +232,8 @@ for dataset in datasets:
         cell.visible_edges = "horizontal"
         cell.set_edgecolor("#333333")
         cell.set_linewidth(0.6)
+        cell.get_text().set_wrap(True)
+        cell.get_text().set_linespacing(1.05)
 
         if row_idx == 0:
             cell.set_text_props(weight="bold")

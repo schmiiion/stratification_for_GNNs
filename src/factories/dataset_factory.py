@@ -5,7 +5,14 @@ import hashlib
 import re
 import tarfile
 from urllib.request import urlretrieve
-from torch_geometric.datasets import Planetoid, Amazon, WikipediaNetwork, Actor
+from torch_geometric.datasets import (
+    Actor,
+    Amazon,
+    Coauthor,
+    Planetoid,
+    WikiCS,
+    WikipediaNetwork,
+)
 from torch_geometric.data import Data
 import numpy as np
 import scipy.sparse as sp
@@ -36,7 +43,19 @@ class DatasetFactory:
         "PubMed": Planetoid,
         "Computers": Amazon,
         "Photo": Amazon,
+        "CoauthorCS": Coauthor,
+        "CoauthorPhysics": Coauthor,
+        "WikiCS": WikiCS,
         "crocodile": WikipediaNetwork,
+    }
+
+    _REGISTRY_ALIASES = {
+        "coauthor_cs": "CoauthorCS",
+        "coauthorcs": "CoauthorCS",
+        "coauthor_physics": "CoauthorPhysics",
+        "coauthorphysics": "CoauthorPhysics",
+        "wiki_cs": "WikiCS",
+        "wikics": "WikiCS",
     }
 
     _HETEROPHILOUS_DATASET_FILES = {                        #these are from the platonov paper
@@ -46,6 +65,8 @@ class DatasetFactory:
         "roman_empire": Path("roman_empire/roman_empire.npz"),
         "wisconsin": Path("wisconsin/wisconsin.npz"),
         "actor": Path("Actor/actor.npz"),
+        "cornell": Path("cornell/cornell.npz"),
+        "amazon_ratings": Path("amazon_ratings/amazon_ratings.npz"),
     }
 
     _DEFAULT_HETEROPHILOUS_ROOT = (
@@ -98,27 +119,37 @@ class DatasetFactory:
                 root_dir=synthetic_root,
             )
 
+        registry_name = cls._registry_dataset_name(name)
         heterophilous_name = cls._canonical_heterophilous_name(name)
-        if name not in cls._REGISTRY and heterophilous_name in cls._HETEROPHILOUS_DATASET_FILES:
+        if registry_name not in cls._REGISTRY and heterophilous_name in cls._HETEROPHILOUS_DATASET_FILES:
             return cls.load_heterophilous_graph_dataset(
                 name=heterophilous_name,
                 root_dir=heterophilous_root_dir,
             )
 
-        if name not in cls._REGISTRY:
+        if registry_name not in cls._REGISTRY:
             supported = ", ".join(
-                sorted([*cls._REGISTRY.keys(), *cls._HETEROPHILOUS_DATASET_FILES.keys(), cls._SYN_CORA_NAME])
+                sorted([
+                    *cls._REGISTRY.keys(),
+                    *cls._REGISTRY_ALIASES.keys(),
+                    *cls._HETEROPHILOUS_DATASET_FILES.keys(),
+                    cls._SYN_CORA_NAME,
+                ])
             )
             raise ValueError(f"Dataset '{name}' not recognized. Supported datasets: {supported}")
 
-        DatasetClass = cls._REGISTRY[name]
-        data_path = f"{root_dir.rstrip('/')}/{name}"
+        DatasetClass = cls._REGISTRY[registry_name]
+        data_path = f"{root_dir.rstrip('/')}/{registry_name}"
 
-        # Handle the specific instantiation logic for Actor vs others
         if DatasetClass == Actor:
             dataset = DatasetClass(root=data_path)
+        elif DatasetClass == Coauthor:
+            coauthor_name = "CS" if registry_name == "CoauthorCS" else "Physics"
+            dataset = DatasetClass(root=data_path, name=coauthor_name)
+        elif DatasetClass == WikiCS:
+            dataset = DatasetClass(root=data_path)
         else:
-            dataset = DatasetClass(root=data_path, name=name)
+            dataset = DatasetClass(root=data_path, name=registry_name)
 
         # Extract dimensions and move data to the target device
         input_dim = dataset.num_features
@@ -231,10 +262,13 @@ class DatasetFactory:
         root = Path(root_dir) if root_dir is not None else cls._DEFAULT_HETEROPHILOUS_ROOT
         canonical_name = cls._canonical_heterophilous_name(name)
         relative_path = cls._HETEROPHILOUS_DATASET_FILES[canonical_name]
-        data_path = root / relative_path
+        data_path = cls._resolve_heterophilous_data_path(root, relative_path)
         if not data_path.exists():
+            candidate_text = ", ".join(
+                str(path) for path in cls._heterophilous_data_path_candidates(root, relative_path)
+            )
             raise FileNotFoundError(
-                f"Could not find heterophilous dataset '{name}' at {data_path}"
+                f"Could not find heterophilous dataset '{name}'. Checked: {candidate_text}"
             )
 
         with np.load(data_path) as raw:
@@ -272,11 +306,30 @@ class DatasetFactory:
 
     @staticmethod
     def _canonical_heterophilous_name(name: str):
-        return name.replace("-", "_").lower()
+        return name.replace("-", "_").replace(" ", "_").lower()
 
     @staticmethod
     def _canonical_dataset_name(name: str):
         return name.replace("_", "-").lower()
+
+    @classmethod
+    def _registry_dataset_name(cls, name: str):
+        key = name.replace("-", "_").replace(" ", "_").lower()
+        return cls._REGISTRY_ALIASES.get(key, name)
+
+    @staticmethod
+    def _heterophilous_data_path_candidates(root: Path, relative_path: Path):
+        return [
+            root / relative_path,
+            root / relative_path.name,
+        ]
+
+    @classmethod
+    def _resolve_heterophilous_data_path(cls, root: Path, relative_path: Path):
+        for candidate in cls._heterophilous_data_path_candidates(root, relative_path):
+            if candidate.exists():
+                return candidate
+        return root / relative_path
 
     @classmethod
     def _parse_syn_cora_name(cls, canonical_name: str):

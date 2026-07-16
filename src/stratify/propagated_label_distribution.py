@@ -55,6 +55,26 @@ def _compact_cluster_ids(cluster_ids):
     return compact_ids.astype(np.int64)
 
 
+def compute_effective_min_cluster_size(
+    num_nodes,
+    min_cluster_size=25,
+    min_cluster_fraction=0.005,
+    num_folds=5,
+    min_nodes_per_fold=5,
+):
+    num_nodes = int(num_nodes)
+    if num_nodes <= 0:
+        return 1
+
+    min_size = max(
+        1,
+        int(np.ceil(float(min_cluster_size))),
+        int(np.ceil(float(min_cluster_fraction) * num_nodes)),
+        int(num_folds) * int(min_nodes_per_fold),
+    )
+    return min(min_size, num_nodes)
+
+
 def _fit_kmeans(distributions, num_clusters, seed, max_iter=100, n_init=5):
     rng = np.random.default_rng(int(seed))
     num_nodes = distributions.shape[0]
@@ -155,6 +175,9 @@ def select_gap_statistic_cluster_counts(
     seed,
     reference_runs,
     min_cluster_size,
+    min_cluster_fraction=0.005,
+    num_folds=5,
+    min_nodes_per_fold=5,
     complexity_penalty=0.10,
 ):
     """
@@ -173,17 +196,21 @@ def select_gap_statistic_cluster_counts(
     if num_nodes == 0:
         return []
 
-    #ensure that the specified value are in a sensible range
-    min_cluster_size = max(1, int(min_cluster_size))
+    min_cluster_size = compute_effective_min_cluster_size(
+        num_nodes=num_nodes,
+        min_cluster_size=min_cluster_size,
+        min_cluster_fraction=min_cluster_fraction,
+        num_folds=num_folds,
+        min_nodes_per_fold=min_nodes_per_fold,
+    )
     max_clusters = max(1, num_nodes // min_cluster_size)
-    #polish the candidates -> between min and max and every value once
     candidate_clusters = sorted({
-        min(int(cluster_count), max_clusters)
+        int(cluster_count)
         for cluster_count in candidate_clusters
-        if int(cluster_count) > 0
+        if 0 < int(cluster_count) <= max_clusters
     })
     if not candidate_clusters:
-        return [1]
+        candidate_clusters = [max_clusters]
 
     top_k = max(1, int(top_k))
     reference_runs = max(1, int(reference_runs))

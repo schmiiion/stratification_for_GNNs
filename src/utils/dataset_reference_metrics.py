@@ -65,7 +65,9 @@ DATASET_ALIASES = {
     "roman_empire": "roman-empire",
     "roman empire": "roman-empire",
     "coauthor_cs": "coauthor-cs",
+    "coauthorcs": "coauthor-cs",
     "coauthor_physics": "coauthor-physics",
+    "coauthorphysics": "coauthor-physics",
     "amazon_computers": "amazon-computers",
     "amazon_photo": "amazon-photo",
     "amazon_ratings": "amazon-ratings",
@@ -229,30 +231,36 @@ def dataset_graph_size_text(dataset_name, data=None):
     )
 
 
-def dataset_metric_summary(dataset_name, data=None):
+def dataset_homophily_text(dataset_name):
     syn_cora = parse_syn_cora_name(dataset_name)
     homophily = zhu_homophily_ratio(dataset_name)
     reference = platonov_dataset_characteristics(dataset_name)
 
     if syn_cora is not None:
-        homophily_text = f"target h={_format_metric(homophily)}"
+        return f"target h={_format_metric(homophily)}"
     elif homophily is None and reference is not None:
-        homophily_text = f"h_edge={_format_metric(reference['h_edge'])}"
+        return f"h_edge={_format_metric(reference['h_edge'])}"
     else:
-        homophily_text = f"Zhu h={_format_metric(homophily)}"
+        return f"Zhu h={_format_metric(homophily)}"
 
+
+def dataset_li_text(dataset_name, data=None):
     if data is None:
         characteristics = computed_dataset_characteristics(dataset_name)
-        li_edge = characteristics["li_edge"]
         li_node = characteristics["li_node"]
     else:
-        li_edge = getattr(data, "label_informativeness_edge", None)
         li_node = getattr(data, "label_informativeness_node", None)
+        li_edge = getattr(data, "label_informativeness_edge", None)
         sanity_check_label_informativeness(dataset_name, li_edge, li_node)
+
+    return f"LI={_format_metric(li_node)}"
+
+
+def dataset_metric_summary(dataset_name, data=None):
+    homophily_text = dataset_homophily_text(dataset_name)
 
     return (
         f"{homophily_text} | "
         f"{dataset_graph_size_text(dataset_name, data)} | "
-        f"LI_edge={_format_metric(li_edge)} | "
-        f"LI_node={_format_metric(li_node)}"
+        f"{dataset_li_text(dataset_name, data)}"
     )

@@ -10,7 +10,10 @@ import torch
 from torch_geometric.utils import degree, to_networkx
 
 from utils.dataset_reference_metrics import dataset_metric_summary
-from stratify.propagated_label_distribution import compute_propagated_label_cluster_ids
+from stratify.propagated_label_distribution import (
+    compute_effective_min_cluster_size,
+    compute_propagated_label_cluster_ids,
+)
 
 
 class BaseNodeStratifier(ABC):
@@ -213,7 +216,13 @@ class BaseNodeStratifier(ABC):
             decay=self.get_property_option("propagated_label_decay", 0.5),
             num_clusters=self.get_property_option("propagated_label_num_clusters", 50),
             seed=self.seed,
-            min_cluster_size=self.n_splits,
+            min_cluster_size=compute_effective_min_cluster_size(
+                num_nodes=data.num_nodes,
+                min_cluster_size=self.get_property_option("propagated_label_min_cluster_size", 25),
+                min_cluster_fraction=self.get_property_option("propagated_label_min_cluster_fraction", 0.005),
+                num_folds=self.n_splits,
+                min_nodes_per_fold=self.get_property_option("propagated_label_min_nodes_per_fold", 5),
+            ),
         )
 
         return {

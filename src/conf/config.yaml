@@ -32,6 +32,9 @@ propagated_label_num_hops: 3
 propagated_label_decay: 0.5
 propagated_label_cluster_selection: "gap_topk" # "fixed" or "gap_topk"
 propagated_label_cluster_candidates: [5, 10, 20, 30, 40, 50, 75, 100]
+propagated_label_min_cluster_size: 25
+propagated_label_min_cluster_fraction: 0.005
+propagated_label_min_nodes_per_fold: 5
 propagated_label_gap_top_k: 3
 propagated_label_gap_reference_runs: 5
 propagated_label_gap_complexity_penalty: 0.10
@@ -60,10 +63,15 @@ datasets: [
 #    "chameleon",
 #   "squirrel",
 #    "crocodile",
-#    "actor",
-#   "Texas",
 #   "wisconsin",
+#   "Texas",
+#    "actor",
 #    "roman_empire",
+#    "cornell",
+#    "amazon_ratings",
+#    "coauthor_cs",
+#    "coauthor_physics",
+#    "WikiCS",
 #     "syn-cora",
 ]
 
