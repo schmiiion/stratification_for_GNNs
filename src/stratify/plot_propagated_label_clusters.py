@@ -18,7 +18,7 @@ from stratify.propagated_label_distribution import (
     select_gap_statistic_cluster_counts,
 )
 from utils.dataset_reference_metrics import dataset_metric_summary
-from utils.experiment_utils import as_list
+from utils.experiment_utils import as_list, dataset_suffix
 
 
 # Main switches for this diagnostic plot.
@@ -28,7 +28,7 @@ MAX_TSNE_NODES = 5000
 SAVE_FIGURE = False
 
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
-OUTPUT_DIR = SRC_ROOT / "outputs/stratification_diagnostics"
+OUTPUT_ROOT = SRC_ROOT / "logs/runs"
 
 
 def cfg_get(cfg, key, default):
@@ -119,6 +119,7 @@ def plot_propagated_label_clusters(
     strat_seed=STRAT_SEED,
     max_tsne_nodes=MAX_TSNE_NODES,
     save_figure=SAVE_FIGURE,
+    output_dir=None,
     show=True,
 ):
     distributions = compute_propagated_label_distribution(
@@ -182,8 +183,11 @@ def plot_propagated_label_clusters(
     )
 
     if save_figure:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = OUTPUT_DIR / f"PropagatedLabelClusters_{dataset_name}_k{selected_k}.png"
+        if output_dir is None:
+            output_dir = OUTPUT_ROOT / dataset_suffix([dataset_name])
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"PropagatedLabelClusters_{dataset_name}_k{selected_k}.png"
         fig.savefig(output_path, bbox_inches="tight")
         print(f"Saved figure to: {output_path}")
 

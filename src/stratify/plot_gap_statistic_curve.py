@@ -17,6 +17,7 @@ from stratify.propagated_label_distribution import (
     select_gap_statistic_cluster_count_from_curve,
 )
 from utils.dataset_reference_metrics import dataset_metric_summary
+from utils.experiment_utils import dataset_suffix
 
 
 # Main switches for standalone usage.
@@ -25,7 +26,7 @@ STRAT_SEED = 0
 SAVE_FIGURE = False
 
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
-OUTPUT_DIR = SRC_ROOT / "outputs/stratification_diagnostics"
+OUTPUT_ROOT = SRC_ROOT / "logs/runs"
 
 
 def cfg_get(cfg, key, default):
@@ -77,6 +78,7 @@ def plot_gap_statistic_curve(
     data,
     strat_seed=STRAT_SEED,
     save_figure=SAVE_FIGURE,
+    output_dir=None,
     show=True,
 ):
     curve = compute_curve_from_data(cfg, data, strat_seed)
@@ -163,8 +165,11 @@ def plot_gap_statistic_curve(
     )
 
     if save_figure:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = OUTPUT_DIR / f"GapStatistic_{dataset_name}_k{selected_k}.png"
+        if output_dir is None:
+            output_dir = OUTPUT_ROOT / dataset_suffix([dataset_name])
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"GapStatistic_{dataset_name}_k{selected_k}.png"
         fig.savefig(output_path, bbox_inches="tight")
         print(f"Saved figure to: {output_path}")
 

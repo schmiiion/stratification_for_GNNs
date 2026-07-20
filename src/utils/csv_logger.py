@@ -60,6 +60,7 @@ class CsvLogger:
             "FoldStatistics",
         )
         self.cfg.fold_stats_csv_filename = self._resolve_log_path(self.cfg.fold_stats_csv_filename)
+        self.cfg.run_output_dir = os.path.dirname(self.cfg.run_csv_filename)
 
         self._write_header(self.cfg.run_csv_filename, self.RUN_METRICS_HEADER)
         self._write_header(self.cfg.fold_stats_csv_filename, self.FOLD_STATS_HEADER)

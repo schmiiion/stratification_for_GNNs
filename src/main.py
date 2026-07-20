@@ -156,6 +156,8 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
         dataset_name=dataset_id,
         data=data,
         strat_seed=plot_seed,
+        save_figure=True,
+        output_dir=cfg.run_output_dir,
     )
 
 
@@ -172,6 +174,8 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
         dataset_name=dataset_id,
         data=data,
         strat_seed=plot_seed,
+        save_figure=True,
+        output_dir=cfg.run_output_dir,
     )
 
 
