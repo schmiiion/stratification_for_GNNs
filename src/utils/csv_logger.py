@@ -3,6 +3,8 @@ from datetime import datetime
 import os
 from pathlib import Path
 
+from omegaconf import DictConfig, OmegaConf
+
 from utils.experiment_utils import build_log_path
 
 
@@ -60,7 +62,7 @@ class CsvLogger:
             "FoldStatistics",
         )
         self.cfg.fold_stats_csv_filename = self._resolve_log_path(self.cfg.fold_stats_csv_filename)
-        self.cfg.run_output_dir = os.path.dirname(self.cfg.run_csv_filename)
+        self._set_cfg_value("run_output_dir", os.path.dirname(self.cfg.run_csv_filename))
 
         self._write_header(self.cfg.run_csv_filename, self.RUN_METRICS_HEADER)
         self._write_header(self.cfg.fold_stats_csv_filename, self.FOLD_STATS_HEADER)
@@ -73,6 +75,12 @@ class CsvLogger:
         if not path.is_absolute():
             path = SRC_ROOT / path
         return str(path)
+
+    def _set_cfg_value(self, key, value):
+        if isinstance(self.cfg, DictConfig):
+            OmegaConf.update(self.cfg, key, value, force_add=True)
+        else:
+            setattr(self.cfg, key, value)
 
     @staticmethod
     def _write_header(filepath, header):

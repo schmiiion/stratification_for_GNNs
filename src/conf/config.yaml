@@ -79,3 +79,4 @@ datasets: [
 plot_fold_statistics: false
 run_csv_filename: "logs/runs/StratifiedSamplingBaseline.csv"
 fold_stats_csv_filename: "logs/runs/FoldStatistics.csv"
+run_output_dir: null # set by CsvLogger after timestamped run paths are created
