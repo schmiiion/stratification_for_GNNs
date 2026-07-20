@@ -159,6 +159,22 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
     )
 
 
+def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
+    if not cfg.get("plot_gap_statistic_curve", False):
+        return
+
+    from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
+
+    fold_seeds = as_list(cfg.get("fold_seeds", [0]))
+    plot_seed = int(fold_seeds[0]) if fold_seeds else 0
+    plot_gap_statistic_curve(
+        cfg=cfg,
+        dataset_name=dataset_id,
+        data=data,
+        strat_seed=plot_seed,
+    )
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     CsvLogger(cfg).initialize()
@@ -184,6 +200,7 @@ def main(cfg: DictConfig):
 
         dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(**dataset_kwargs)
         maybe_plot_propagated_label_clusters(cfg, dataset_id, data)
+        maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
 
         adj_hop1, adj_hop2 = None, None
         if "H2GCN" in cfg.model_names:

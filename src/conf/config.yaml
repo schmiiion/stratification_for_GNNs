@@ -39,6 +39,7 @@ propagated_label_min_nodes_per_fold: 5
 propagated_label_gap_reference_runs: 5
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
 plot_propagated_label_clusters: false
+plot_gap_statistic_curve: false
 
 #logging of stratification properties
 fold_stat_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]

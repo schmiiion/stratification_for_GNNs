@@ -168,6 +168,130 @@ def cluster_label_distributions(distributions, num_clusters=50, seed=0, min_clus
     )
 
 
+def _prepare_gap_statistic_inputs(
+    distributions,
+    min_cluster_size,
+    min_cluster_fraction=0.005,
+    num_folds=5,
+    min_nodes_per_fold=5,
+    min_k=2,
+    max_k=50,
+):
+    distributions = np.asarray(distributions, dtype=float)
+    if distributions.ndim != 2:
+        raise ValueError("Expected propagated label distributions with shape [num_nodes, num_classes].")
+
+    num_nodes = distributions.shape[0]
+    if num_nodes == 0:
+        return distributions, []
+
+    min_cluster_size = compute_effective_min_cluster_size(
+        num_nodes=num_nodes,
+        min_cluster_size=min_cluster_size,
+        min_cluster_fraction=min_cluster_fraction,
+        num_folds=num_folds,
+        min_nodes_per_fold=min_nodes_per_fold,
+    )
+    max_clusters = max(1, num_nodes // min_cluster_size)
+    if max_k is not None:
+        max_clusters = min(max_clusters, max(1, int(max_k)))
+    min_k = max(1, int(min_k))
+    if max_clusters < min_k:
+        return distributions, [max_clusters]
+
+    return distributions, list(range(min_k, max_clusters + 1))
+
+
+def _gap_statistic_score(distributions, cluster_count, rng, reference_runs, lower, upper):
+    _, _, inertia = _fit_kmeans(
+        distributions=distributions,
+        num_clusters=cluster_count,
+        seed=int(rng.integers(0, 2**31 - 1)),
+    )
+    log_inertia = float(np.log(max(inertia, 1e-12)))
+    reference_log_inertias = []
+    for _ in range(reference_runs):
+        reference = rng.uniform(lower, upper, size=distributions.shape)
+        _, _, reference_inertia = _fit_kmeans(
+            distributions=reference,
+            num_clusters=cluster_count,
+            seed=int(rng.integers(0, 2**31 - 1)),
+        )
+        reference_log_inertias.append(np.log(max(reference_inertia, 1e-12))) #store results from all reference runs
+
+    reference_log_inertias = np.asarray(reference_log_inertias, dtype=float)
+    reference_log_inertia_mean = float(np.mean(reference_log_inertias))
+    gap = float(reference_log_inertia_mean - log_inertia) # Gap(k) = E_ref[log(W_k)] - log(W_k)
+    reference_sd = float(np.std(reference_log_inertias, ddof=1))
+    reference_se = reference_sd * np.sqrt(1.0 + 1.0 / reference_runs)
+    return {
+        "k": int(cluster_count),
+        "log_inertia": log_inertia,
+        "reference_log_inertia_mean": reference_log_inertia_mean,
+        "gap": gap,
+        "reference_sd": reference_sd,
+        "reference_se": reference_se,
+        "gap_minus_reference_se": gap - reference_se,
+    }
+
+
+def compute_gap_statistic_curve(
+    distributions,
+    seed,
+    reference_runs,
+    min_cluster_size,
+    min_cluster_fraction=0.005,
+    num_folds=5,
+    min_nodes_per_fold=5,
+    min_k=2,
+    max_k=50,
+):
+    """
+    Compute Gap(k) for every k in the configured range.
+
+    The reference samples are drawn uniformly from the coordinate-wise bounding
+    box of the observed propagated-label distributions.
+    """
+    distributions, cluster_counts = _prepare_gap_statistic_inputs(
+        distributions=distributions,
+        min_cluster_size=min_cluster_size,
+        min_cluster_fraction=min_cluster_fraction,
+        num_folds=num_folds,
+        min_nodes_per_fold=min_nodes_per_fold,
+        min_k=min_k,
+        max_k=max_k,
+    )
+    if not cluster_counts:
+        return []
+
+    reference_runs = max(2, int(reference_runs))
+    rng = np.random.default_rng(int(seed))
+    lower = distributions.min(axis=0)
+    upper = distributions.max(axis=0)
+    return [
+        _gap_statistic_score(
+            distributions=distributions,
+            cluster_count=cluster_count,
+            rng=rng,
+            reference_runs=reference_runs,
+            lower=lower,
+            upper=upper,
+        )
+        for cluster_count in cluster_counts
+    ]
+
+
+def select_gap_statistic_cluster_count_from_curve(curve):
+    if not curve:
+        return None
+
+    for current, following in zip(curve[:-1], curve[1:]):
+        if current["gap"] >= following["gap"] - following["reference_se"]:
+            return int(current["k"])
+
+    return int(curve[-1]["k"])
+
+
 def select_gap_statistic_cluster_counts(
     distributions,
     seed,
@@ -188,64 +312,31 @@ def select_gap_statistic_cluster_counts(
     Gap(k) >= Gap(k + 1) - s'_{k+1}, with
     s'_k = sd(log(W_ref(k))) * sqrt(1 + 1 / B).
     """
-    distributions = np.asarray(distributions, dtype=float)
-    if distributions.ndim != 2:
-        raise ValueError("Expected propagated label distributions with shape [num_nodes, num_classes].")
-
-    num_nodes = distributions.shape[0]
-    if num_nodes == 0:
-        return []
-
-    min_cluster_size = compute_effective_min_cluster_size(
-        num_nodes=num_nodes,
+    distributions, cluster_counts = _prepare_gap_statistic_inputs(
+        distributions=distributions,
         min_cluster_size=min_cluster_size,
         min_cluster_fraction=min_cluster_fraction,
         num_folds=num_folds,
         min_nodes_per_fold=min_nodes_per_fold,
+        min_k=min_k,
+        max_k=max_k,
     )
-    max_clusters = max(1, num_nodes // min_cluster_size)
-    if max_k is not None:
-        max_clusters = min(max_clusters, max(1, int(max_k)))
-    min_k = max(1, int(min_k))
-    if max_clusters < min_k:
-        return [max_clusters]
+    if not cluster_counts:
+        return []
 
     reference_runs = max(2, int(reference_runs))
     rng = np.random.default_rng(int(seed))
     lower = distributions.min(axis=0)
     upper = distributions.max(axis=0)
 
-    def score(cluster_count):
-        _, _, inertia = _fit_kmeans(
-            distributions=distributions,
-            num_clusters=cluster_count,
-            seed=int(rng.integers(0, 2**31 - 1)),
-        )
-        reference_log_inertias = []
-        for _ in range(reference_runs):
-            reference = rng.uniform(lower, upper, size=distributions.shape)
-            _, _, reference_inertia = _fit_kmeans(
-                distributions=reference,
-                num_clusters=cluster_count,
-                seed=int(rng.integers(0, 2**31 - 1)),
-            )
-            reference_log_inertias.append(np.log(max(reference_inertia, 1e-12))) #store results from all reference runs
-
-        gap = float(np.mean(reference_log_inertias) - np.log(max(inertia, 1e-12))) # Gap(k) = E_ref[log(W_k)] - log(W_k)
-        reference_sd = float(np.std(reference_log_inertias, ddof=1))
-        reference_se = reference_sd * np.sqrt(1.0 + 1.0 / reference_runs)
-        return cluster_count, gap, reference_se
-
-    current = score(min_k)
-    for next_k in range(min_k + 1, max_clusters + 1):
-        following = score(next_k)
-        current_k, current_gap, _ = current
-        _, next_gap, next_reference_se = following
-        if current_gap >= next_gap - next_reference_se:
-            return [current_k]
+    current = _gap_statistic_score(distributions, cluster_counts[0], rng, reference_runs, lower, upper)
+    for next_k in cluster_counts[1:]:
+        following = _gap_statistic_score(distributions, next_k, rng, reference_runs, lower, upper)
+        if current["gap"] >= following["gap"] - following["reference_se"]:
+            return [int(current["k"])]
         current = following
 
-    return [current[0]]
+    return [int(current["k"])]
 
 
 def compute_propagated_label_cluster_ids(
