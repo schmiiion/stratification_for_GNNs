@@ -12,9 +12,8 @@ if str(SRC_ROOT) not in sys.path:
 
 from factories.dataset_factory import DatasetFactory
 from stratify.propagated_label_distribution import (
-    compute_gap_statistic_curve,
+    compute_gap_statistic_selection_curve,
     compute_propagated_label_distribution,
-    select_gap_statistic_cluster_count_from_curve,
 )
 from utils.dataset_reference_metrics import dataset_metric_summary
 from utils.experiment_utils import dataset_suffix
@@ -45,7 +44,7 @@ def compute_curve_from_data(cfg, data, strat_seed, dataset_name="dataset"):
         num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
         decay=cfg_get(cfg, "propagated_label_decay", 0.5),
     )
-    return compute_gap_statistic_curve(
+    return compute_gap_statistic_selection_curve(
         distributions=distributions,
         seed=strat_seed,
         reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
@@ -55,6 +54,7 @@ def compute_curve_from_data(cfg, data, strat_seed, dataset_name="dataset"):
         min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
         min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
         max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
+        extra_after_selected=cfg_get(cfg, "propagated_label_gap_plot_extra_k", 5),
         show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
         progress_label=f"Gap curve {dataset_name} seed={strat_seed}",
     )
@@ -83,11 +83,10 @@ def plot_gap_statistic_curve(
     output_dir=None,
     show=True,
 ):
-    curve = compute_curve_from_data(cfg, data, strat_seed, dataset_name)
+    curve, selected_k = compute_curve_from_data(cfg, data, strat_seed, dataset_name)
     if not curve:
         raise ValueError("Cannot plot gap statistic curve because no k values were evaluated.")
 
-    selected_k = select_gap_statistic_cluster_count_from_curve(curve)
     k_values = np.array([row["k"] for row in curve], dtype=int)
     gaps = np.array([row["gap"] for row in curve], dtype=float)
     reference_se = np.array([row["reference_se"] for row in curve], dtype=float)
@@ -160,7 +159,7 @@ def plot_gap_statistic_curve(
         f"hops={cfg_get(cfg, 'propagated_label_num_hops', 3)} | "
         f"decay={cfg_get(cfg, 'propagated_label_decay', 0.5)} | "
         f"reference runs={cfg_get(cfg, 'propagated_label_gap_reference_runs', 5)} | "
-        f"k range={int(k_values[0])}-{int(k_values[-1])} | "
+        f"plotted k={int(k_values[0])}-{int(k_values[-1])} | "
         f"selected k={selected_k} | {criterion_text}",
         fontsize=14,
         fontweight="bold",

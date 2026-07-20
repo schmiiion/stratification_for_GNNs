@@ -143,7 +143,7 @@ def configured_dataset_requests(cfg):
                 }
 
 
-def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
+def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None):
     if not cfg.get("plot_propagated_label_clusters", False):
         return
 
@@ -159,20 +159,21 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
         strat_seed=plot_seed,
         save_figure=True,
         output_dir=cfg.run_output_dir,
+        selected_k=selected_k,
     )
     print(f"Finished propagated-label cluster plot for {dataset_id}.")
 
 
 def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
     if not cfg.get("plot_gap_statistic_curve", False):
-        return
+        return None
 
     from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
     print(f"Creating gap-statistic plot for {dataset_id}...")
-    plot_gap_statistic_curve(
+    _, selected_k, _ = plot_gap_statistic_curve(
         cfg=cfg,
         dataset_name=dataset_id,
         data=data,
@@ -181,6 +182,7 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
         output_dir=cfg.run_output_dir,
     )
     print(f"Finished gap-statistic plot for {dataset_id}.")
+    return selected_k
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -207,8 +209,8 @@ def main(cfg: DictConfig):
         print(f"\n{'=' * 40}\nDATASET: {dataset_id}\n{'=' * 40}")
 
         dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(**dataset_kwargs)
-        maybe_plot_propagated_label_clusters(cfg, dataset_id, data)
-        maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
+        selected_gap_k = maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
+        maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=selected_gap_k)
 
         adj_hop1, adj_hop2 = None, None
         if "H2GCN" in cfg.model_names:

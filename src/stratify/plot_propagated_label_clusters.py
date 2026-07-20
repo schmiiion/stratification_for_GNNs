@@ -60,6 +60,8 @@ def select_cluster_count(cfg, distributions, strat_seed):
             min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
             min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
             max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
+            show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
+            progress_label="Gap statistic for propagated-label t-SNE",
         )
         return int(selected[0])
 
@@ -121,13 +123,16 @@ def plot_propagated_label_clusters(
     save_figure=SAVE_FIGURE,
     output_dir=None,
     show=True,
+    selected_k=None,
 ):
     distributions = compute_propagated_label_distribution(
         data=data,
         num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
         decay=cfg_get(cfg, "propagated_label_decay", 0.5),
     )
-    selected_k = select_cluster_count(cfg, distributions, strat_seed)
+    if selected_k is None:
+        selected_k = select_cluster_count(cfg, distributions, strat_seed)
+    selected_k = int(selected_k)
 
     effective_min_cluster_size = compute_effective_min_cluster_size(
         num_nodes=int(data.num_nodes),

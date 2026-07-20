@@ -308,6 +308,95 @@ def compute_gap_statistic_curve(
     return curve
 
 
+def compute_gap_statistic_selection_curve(
+    distributions,
+    seed,
+    reference_runs,
+    min_cluster_size,
+    min_cluster_fraction=0.005,
+    num_folds=5,
+    min_nodes_per_fold=5,
+    min_k=2,
+    max_k=50,
+    extra_after_selected=0,
+    show_progress=True,
+    progress_label="Gap statistic selection",
+):
+    """
+    Compute only the gap-statistic values needed for selection, plus an optional
+    short tail after the selected k for plotting stability.
+    """
+    distributions, cluster_counts = _prepare_gap_statistic_inputs(
+        distributions=distributions,
+        min_cluster_size=min_cluster_size,
+        min_cluster_fraction=min_cluster_fraction,
+        num_folds=num_folds,
+        min_nodes_per_fold=min_nodes_per_fold,
+        min_k=min_k,
+        max_k=max_k,
+    )
+    if not cluster_counts:
+        return [], None
+
+    reference_runs = max(2, int(reference_runs))
+    extra_after_selected = max(0, int(extra_after_selected))
+    rng = np.random.default_rng(int(seed))
+    lower = distributions.min(axis=0)
+    upper = distributions.max(axis=0)
+    progress_bar = _make_progress_bar(
+        total=len(cluster_counts),
+        enabled=show_progress,
+        label=progress_label,
+    )
+
+    def score(cluster_count):
+        result = _gap_statistic_score(
+            distributions=distributions,
+            cluster_count=cluster_count,
+            rng=rng,
+            reference_runs=reference_runs,
+            lower=lower,
+            upper=upper,
+        )
+        if progress_bar is not None:
+            progress_bar.update(1)
+        return result
+
+    curve = []
+    selected_k = None
+    try:
+        current = score(cluster_counts[0])
+        curve.append(current)
+
+        for next_k in cluster_counts[1:]:
+            following = score(next_k)
+            curve.append(following)
+            if current["gap"] >= following["gap"] - following["reference_se"]:
+                selected_k = int(current["k"])
+                break
+            current = following
+
+        if selected_k is None:
+            selected_k = int(current["k"])
+
+        selected_index = cluster_counts.index(selected_k)
+        last_tail_index = min(
+            len(cluster_counts) - 1,
+            selected_index + extra_after_selected,
+        )
+        already_evaluated = {int(row["k"]) for row in curve}
+        for cluster_count in cluster_counts[selected_index + 1:last_tail_index + 1]:
+            if int(cluster_count) not in already_evaluated:
+                curve.append(score(cluster_count))
+
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
+
+    curve.sort(key=lambda row: int(row["k"]))
+    return curve, selected_k
+
+
 def select_gap_statistic_cluster_count_from_curve(curve):
     if not curve:
         return None
@@ -341,44 +430,23 @@ def select_gap_statistic_cluster_counts(
     Gap(k) >= Gap(k + 1) - s'_{k+1}, with
     s'_k = sd(log(W_ref(k))) * sqrt(1 + 1 / B).
     """
-    distributions, cluster_counts = _prepare_gap_statistic_inputs(
+    curve, selected_k = compute_gap_statistic_selection_curve(
         distributions=distributions,
+        seed=seed,
+        reference_runs=reference_runs,
         min_cluster_size=min_cluster_size,
         min_cluster_fraction=min_cluster_fraction,
         num_folds=num_folds,
         min_nodes_per_fold=min_nodes_per_fold,
         min_k=min_k,
         max_k=max_k,
+        extra_after_selected=0,
+        show_progress=show_progress,
+        progress_label=progress_label,
     )
-    if not cluster_counts:
+    if not curve or selected_k is None:
         return []
-
-    reference_runs = max(2, int(reference_runs))
-    rng = np.random.default_rng(int(seed))
-    lower = distributions.min(axis=0)
-    upper = distributions.max(axis=0)
-    progress_bar = _make_progress_bar(
-        total=len(cluster_counts),
-        enabled=show_progress,
-        label=progress_label,
-    )
-
-    try:
-        current = _gap_statistic_score(distributions, cluster_counts[0], rng, reference_runs, lower, upper)
-        if progress_bar is not None:
-            progress_bar.update(1)
-        for next_k in cluster_counts[1:]:
-            following = _gap_statistic_score(distributions, next_k, rng, reference_runs, lower, upper)
-            if progress_bar is not None:
-                progress_bar.update(1)
-            if current["gap"] >= following["gap"] - following["reference_se"]:
-                return [int(current["k"])]
-            current = following
-    finally:
-        if progress_bar is not None:
-            progress_bar.close()
-
-    return [int(current["k"])]
+    return [int(selected_k)]
 
 
 def compute_propagated_label_cluster_ids(
