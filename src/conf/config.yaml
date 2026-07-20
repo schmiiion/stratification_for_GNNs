@@ -30,14 +30,12 @@ wdes_tournament_size: 3
 #neighborhood label distribution -hyperparams
 propagated_label_num_hops: 3
 propagated_label_decay: 0.5
-propagated_label_cluster_selection: "gap_topk" # "fixed" or "gap_topk"
-propagated_label_cluster_candidates: [5, 10, 20, 30, 40, 50, 75, 100]
+propagated_label_cluster_selection: "gap_statistic" # "fixed" or "gap_statistic"
+propagated_label_gap_min_k: 2
 propagated_label_min_cluster_size: 25
 propagated_label_min_cluster_fraction: 0.005
 propagated_label_min_nodes_per_fold: 5
-propagated_label_gap_top_k: 3
 propagated_label_gap_reference_runs: 5
-propagated_label_gap_complexity_penalty: 0.10
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
 
 #logging of stratification properties

@@ -170,25 +170,23 @@ def cluster_label_distributions(distributions, num_clusters=50, seed=0, min_clus
 
 def select_gap_statistic_cluster_counts(
     distributions,
-    candidate_clusters,
-    top_k,
     seed,
     reference_runs,
     min_cluster_size,
     min_cluster_fraction=0.005,
     num_folds=5,
     min_nodes_per_fold=5,
-    complexity_penalty=0.10,
+    min_k=2,
 ):
     """
-    Select the top-k cluster counts using a mildly penalized gap statistic.
+    Select k using the original gap-statistic stopping rule.
 
-    The original gap statistic favors the smallest k that is close enough to
-    the next larger candidate. Here we keep the top-k workflow, but subtract a
-    small scale-aware penalty from larger k values to preserve that bias toward
-    simpler clusterings.
+    Candidate values are all integers from min_k to the largest k that still
+    respects the configured minimum cluster-size heuristic. We choose the first
+    k where Gap(k) >= Gap(k + 1) - s'_{k+1}, with
+    s'_k = sd(log(W_ref(k))) * sqrt(1 + 1 / B).
     """
-    distributions = np.asarray(distributions, dtype=float) #
+    distributions = np.asarray(distributions, dtype=float)
     if distributions.ndim != 2:
         raise ValueError("Expected propagated label distributions with shape [num_nodes, num_classes].")
 
@@ -204,17 +202,12 @@ def select_gap_statistic_cluster_counts(
         min_nodes_per_fold=min_nodes_per_fold,
     )
     max_clusters = max(1, num_nodes // min_cluster_size)
-    candidate_clusters = sorted({
-        int(cluster_count)
-        for cluster_count in candidate_clusters
-        if 0 < int(cluster_count) <= max_clusters
-    })
-    if not candidate_clusters:
-        candidate_clusters = [max_clusters]
+    min_k = max(1, int(min_k))
+    if max_clusters < min_k:
+        return [max_clusters]
 
-    top_k = max(1, int(top_k))
-    reference_runs = max(1, int(reference_runs))
-    complexity_penalty = max(0.0, float(complexity_penalty))
+    candidate_clusters = list(range(min_k, max_clusters + 1))
+    reference_runs = max(2, int(reference_runs))
     rng = np.random.default_rng(int(seed))
     lower = distributions.min(axis=0)
     upper = distributions.max(axis=0)
@@ -237,24 +230,17 @@ def select_gap_statistic_cluster_counts(
             reference_log_inertias.append(np.log(max(reference_inertia, 1e-12))) #store results from all reference runs
 
         gap = float(np.mean(reference_log_inertias) - np.log(max(inertia, 1e-12))) # Gap(k) = E_ref[log(W_k)] - log(W_k)
-        scores.append((cluster_count, gap))
+        reference_sd = float(np.std(reference_log_inertias, ddof=1))
+        reference_se = reference_sd * np.sqrt(1.0 + 1.0 / reference_runs)
+        scores.append((cluster_count, gap, reference_se))
 
-    gap_values = [gap for _, gap in scores]
-    gap_range = max(gap_values) - min(gap_values)
-    min_k = min(cluster_count for cluster_count, _ in scores)
-    max_k = max(cluster_count for cluster_count, _ in scores)
+    for current, following in zip(scores[:-1], scores[1:]):
+        current_k, current_gap, _ = current
+        _, next_gap, next_reference_se = following
+        if current_gap >= next_gap - next_reference_se:
+            return [current_k]
 
-    adjusted_scores = []
-    for cluster_count, gap in scores:
-        if gap_range <= 0 or min_k == max_k:
-            adjusted_gap = gap
-        else:
-            complexity = np.log(cluster_count / min_k) / np.log(max_k / min_k)
-            adjusted_gap = gap - complexity_penalty * gap_range * complexity
-        adjusted_scores.append((cluster_count, gap, adjusted_gap))
-
-    adjusted_scores.sort(key=lambda item: (-item[2], item[0]))
-    return [cluster_count for cluster_count, _, _ in adjusted_scores[:top_k]]
+    return [scores[-1][0]]
 
 
 def compute_propagated_label_cluster_ids(
