@@ -40,8 +40,8 @@ propagated_label_gap_reference_runs: 5
 propagated_label_gap_progress: true
 propagated_label_gap_plot_extra_k: 5
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
-plot_propagated_label_clusters: false
-plot_gap_statistic_curve: false
+plot_propagated_label_clusters: true
+plot_gap_statistic_curve: true
 
 #logging of stratification properties
 fold_stat_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]
@@ -52,17 +52,17 @@ syn_cora_ratios: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 syn_cora_realizations: [1]
 
 #fold_seeds: [0,1,2,3,4,5,6,7,8,9]
-fold_seeds: [0,1,2,3,4]
+fold_seeds: [0]
 
 model_names: ["MLP", "GCN", "GAT", "SAGE","MixHop", "GPRGNN", "H2GCN"]
 #model_names: ["H2GCN"]
 
 datasets: [
-#   "Cora",
+#"Cora",
 #    "CiteSeer",
 #    "PubMed",
-    "Computers",
-    "Photo",
+#    "Computers",
+#    "Photo",
 #    "chameleon",
 #   "squirrel",
 #    "crocodile",
@@ -72,9 +72,9 @@ datasets: [
 #    "roman_empire",
 #    "cornell",
 #    "amazon_ratings",
-#    "coauthor_cs",
-#    "coauthor_physics",
-#    "WikiCS",
+    "coauthor_cs",
+    "coauthor_physics",
+    "WikiCS",
 #     "syn-cora",
 ]
 

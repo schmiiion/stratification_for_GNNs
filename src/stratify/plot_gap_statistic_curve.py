@@ -176,6 +176,8 @@ def plot_gap_statistic_curve(
 
     if show:
         plt.show()
+    else:
+        plt.close(fig)
 
     return fig, selected_k, curve
 

@@ -86,7 +86,18 @@ def _print_propagated_label_k_cap(cfg, data, dataset_name):
     )
 
 
-def get_property_variants(cfg, property_name, seed, data=None, dataset_name=None):
+def property_cache_key(dataset_name, seed, canonical_property_name):
+    return (str(dataset_name), int(seed), str(canonical_property_name))
+
+
+def get_property_variants(
+    cfg,
+    property_name,
+    seed,
+    data=None,
+    dataset_name=None,
+    property_variant_cache=None,
+):
     canonical_name = WDESKFold.canonical_property_name(property_name)
     if canonical_name != "Propagated Label Cluster":
         return [(canonical_name, {})]
@@ -96,25 +107,35 @@ def get_property_variants(cfg, property_name, seed, data=None, dataset_name=None
         cfg_get(cfg, "propagated_label_cluster_selection", "fixed")
     ).replace("-", "_").lower()
     if selection_method in {"gap", "gap_topk", "gap_statistic"} and data is not None:
-        distributions = compute_propagated_label_distribution(
-            data=data,
-            num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
-            decay=cfg_get(cfg, "propagated_label_decay", 0.5),
-        )
-        cluster_counts = select_gap_statistic_cluster_counts(
-            distributions=distributions,
-            seed=seed,
-            reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
-            min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-            min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
-            num_folds=cfg_get(cfg, "num_folds", 5),
-            min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
-            min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
-            max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
-            show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
-            progress_label=f"Gap statistic {dataset_name} seed={seed}",
-        )
-        print(f"Gap statistic selected propagated-label cluster count: {cluster_counts[0]}")
+        cache_key = property_cache_key(dataset_name, seed, canonical_name)
+        if property_variant_cache is not None and cache_key in property_variant_cache:
+            cluster_counts = [int(property_variant_cache[cache_key])]
+            print(
+                "Reusing gap-statistic propagated-label cluster count "
+                f"for {dataset_name} seed={seed}: {cluster_counts[0]}"
+            )
+        else:
+            distributions = compute_propagated_label_distribution(
+                data=data,
+                num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
+                decay=cfg_get(cfg, "propagated_label_decay", 0.5),
+            )
+            cluster_counts = select_gap_statistic_cluster_counts(
+                distributions=distributions,
+                seed=seed,
+                reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
+                min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
+                min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+                num_folds=cfg_get(cfg, "num_folds", 5),
+                min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
+                min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
+                max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
+                show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
+                progress_label=f"Gap statistic {dataset_name} seed={seed}",
+            )
+            print(f"Gap statistic selected propagated-label cluster count: {cluster_counts[0]}")
+            if property_variant_cache is not None:
+                property_variant_cache[cache_key] = int(cluster_counts[0])
     else:
         cluster_counts = as_list(cfg_get(cfg, "propagated_label_num_clusters", [50]))
 
@@ -124,7 +145,7 @@ def get_property_variants(cfg, property_name, seed, data=None, dataset_name=None
     ]
 
 
-def get_stratifiers(cfg, dataset_name, seed, data=None):
+def get_stratifiers(cfg, dataset_name, seed, data=None, property_variant_cache=None):
     stratification_types = as_list(cfg_get(cfg, "stratification_types", ["label"]))
     stratifiers = []
 
@@ -140,6 +161,7 @@ def get_stratifiers(cfg, dataset_name, seed, data=None):
                     seed=seed,
                     data=data,
                     dataset_name=dataset_name,
+                    property_variant_cache=property_variant_cache,
                 ):
                     stratifiers.append(
                         stratifier_class(

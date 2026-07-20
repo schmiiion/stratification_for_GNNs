@@ -193,12 +193,14 @@ def plot_propagated_label_clusters(
             output_dir = OUTPUT_ROOT / dataset_suffix([dataset_name])
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"PropagatedLabelClusters_{dataset_name}_k{selected_k}.png"
+        output_path = output_dir / f"PropagatedLabelPCA_TSNEClusters_{dataset_name}_k{selected_k}.png"
         fig.savefig(output_path, bbox_inches="tight")
         print(f"Saved figure to: {output_path}")
 
     if show:
         plt.show()
+    else:
+        plt.close(fig)
 
     return fig, selected_k
 

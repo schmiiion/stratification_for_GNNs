@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from factories.dataset_factory import DatasetFactory
 from factories.model_factory import get_models
-from factories.stratifier_factory import get_stratifiers
+from factories.stratifier_factory import get_stratifiers, property_cache_key
 import hydra
 from omegaconf import DictConfig
 import numpy as np
@@ -145,23 +145,25 @@ def configured_dataset_requests(cfg):
 
 def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None):
     if not cfg.get("plot_propagated_label_clusters", False):
-        return
+        return None
 
     from stratify.plot_propagated_label_clusters import plot_propagated_label_clusters
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
     print(f"Creating propagated-label cluster plot for {dataset_id}...")
-    plot_propagated_label_clusters(
+    _, selected_k = plot_propagated_label_clusters(
         cfg=cfg,
         dataset_name=dataset_id,
         data=data,
         strat_seed=plot_seed,
         save_figure=True,
         output_dir=cfg.run_output_dir,
+        show=False,
         selected_k=selected_k,
     )
     print(f"Finished propagated-label cluster plot for {dataset_id}.")
+    return plot_seed, selected_k
 
 
 def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
@@ -180,9 +182,10 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
         strat_seed=plot_seed,
         save_figure=True,
         output_dir=cfg.run_output_dir,
+        show=False,
     )
     print(f"Finished gap-statistic plot for {dataset_id}.")
-    return selected_k
+    return plot_seed, selected_k
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
@@ -209,8 +212,30 @@ def main(cfg: DictConfig):
         print(f"\n{'=' * 40}\nDATASET: {dataset_id}\n{'=' * 40}")
 
         dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(**dataset_kwargs)
-        selected_gap_k = maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
-        maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=selected_gap_k)
+        property_variant_cache = {}
+        selected_gap_k = None
+        gap_plot_result = maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
+        if gap_plot_result is not None:
+            plot_seed, selected_gap_k = gap_plot_result
+            property_variant_cache[property_cache_key(
+                dataset_id,
+                plot_seed,
+                "Propagated Label Cluster",
+            )] = int(selected_gap_k)
+
+        cluster_plot_result = maybe_plot_propagated_label_clusters(
+            cfg,
+            dataset_id,
+            data,
+            selected_k=selected_gap_k,
+        )
+        if cluster_plot_result is not None:
+            plot_seed, selected_cluster_k = cluster_plot_result
+            property_variant_cache[property_cache_key(
+                dataset_id,
+                plot_seed,
+                "Propagated Label Cluster",
+            )] = int(selected_cluster_k)
 
         adj_hop1, adj_hop2 = None, None
         if "H2GCN" in cfg.model_names:
@@ -218,7 +243,13 @@ def main(cfg: DictConfig):
             adj_hop1, adj_hop2 = DatasetFactory.precompute_h2gcn_hops(data.edge_index, data.num_nodes)
 
         for fold_seed in cfg.fold_seeds:
-            stratifiers = get_stratifiers(cfg=cfg, dataset_name=dataset_id, seed=fold_seed, data=data)
+            stratifiers = get_stratifiers(
+                cfg=cfg,
+                dataset_name=dataset_id,
+                seed=fold_seed,
+                data=data,
+                property_variant_cache=property_variant_cache,
+            )
             for stratifier in stratifiers:
                 folds = stratifier.get_folds(data)
                 stratification_name = stratifier.stratification_method
