@@ -24,7 +24,7 @@ from utils.experiment_utils import as_list, dataset_suffix
 # Main switches for this diagnostic plot.
 DATASET_NAME = "Cora"
 STRAT_SEED = 0
-MAX_TSNE_NODES = 5000
+MAX_TSNE_NODES = 1000
 SAVE_FIGURE = False
 
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
@@ -93,7 +93,17 @@ def fit_tsne(distributions, strat_seed):
         init="pca",
         learning_rate="auto",
         random_state=strat_seed,
+        n_jobs=1,
     ).fit_transform(distributions)
+
+
+def fit_pca(distributions):
+    centered = distributions - distributions.mean(axis=0, keepdims=True)
+    _, _, vt = np.linalg.svd(centered, full_matrices=False)
+    embedding = centered @ vt[:2].T
+    if embedding.shape[1] == 1:
+        embedding = np.column_stack([embedding[:, 0], np.zeros(len(embedding))])
+    return embedding
 
 
 def scatter(ax, embedding, colors, title, cmap):
@@ -133,6 +143,7 @@ def plot_propagated_label_clusters(
     if selected_k is None:
         selected_k = select_cluster_count(cfg, distributions, strat_seed)
     selected_k = int(selected_k)
+    max_tsne_nodes = cfg_get(cfg, "propagated_label_tsne_max_nodes", max_tsne_nodes)
 
     effective_min_cluster_size = compute_effective_min_cluster_size(
         num_nodes=int(data.num_nodes),
@@ -148,42 +159,61 @@ def plot_propagated_label_clusters(
         min_cluster_size=effective_min_cluster_size,
     )
 
-    sample_idx = sample_nodes(len(distributions), max_tsne_nodes, strat_seed)
-    sampled_distributions = distributions[sample_idx]
-    print(f"Computing t-SNE for {dataset_name} on {len(sample_idx)} propagated-label vectors...")
-    embedding = fit_tsne(sampled_distributions, strat_seed)
-    label_colors = data.y.detach().cpu().numpy()[sample_idx]
-    cluster_colors = cluster_ids[sample_idx]
+    labels = data.y.detach().cpu().numpy()
 
-    fig, axes = plt.subplots(1, 2, figsize=(18, 8), dpi=180, constrained_layout=True)
-    label_points = scatter(
-        axes[0],
-        embedding,
-        label_colors,
-        "Before clustering\ncolor = node label",
+    print(f"Computing PCA for {dataset_name} on {len(distributions)} propagated-label vectors...")
+    pca_embedding = fit_pca(distributions)
+
+    tsne_idx = sample_nodes(len(distributions), max_tsne_nodes, strat_seed)
+    tsne_distributions = distributions[tsne_idx]
+    print(f"Computing t-SNE for {dataset_name} on {len(tsne_idx)} propagated-label vectors...")
+    tsne_embedding = fit_tsne(tsne_distributions, strat_seed)
+
+    fig, axes = plt.subplots(2, 2, figsize=(18, 14), dpi=180, constrained_layout=True)
+    pca_label_points = scatter(
+        axes[0, 0],
+        pca_embedding,
+        labels,
+        "PCA before clustering\ncolor = node label",
         "tab20",
     )
-    cluster_points = scatter(
-        axes[1],
-        embedding,
-        cluster_colors,
-        f"After KMeans clustering\ncolor = cluster id, selected k={selected_k}",
+    pca_cluster_points = scatter(
+        axes[0, 1],
+        pca_embedding,
+        cluster_ids,
+        f"PCA after KMeans clustering\ncolor = cluster id, selected k={selected_k}",
         "turbo",
     )
-    fig.colorbar(label_points, ax=axes[0], shrink=0.78, label="Node label")
-    fig.colorbar(cluster_points, ax=axes[1], shrink=0.78, label="Cluster id")
+    tsne_label_points = scatter(
+        axes[1, 0],
+        tsne_embedding,
+        labels[tsne_idx],
+        "t-SNE before clustering\ncolor = node label",
+        "tab20",
+    )
+    tsne_cluster_points = scatter(
+        axes[1, 1],
+        tsne_embedding,
+        cluster_ids[tsne_idx],
+        f"t-SNE after KMeans clustering\ncolor = cluster id, selected k={selected_k}",
+        "turbo",
+    )
+    fig.colorbar(pca_label_points, ax=axes[0, 0], shrink=0.78, label="Node label")
+    fig.colorbar(pca_cluster_points, ax=axes[0, 1], shrink=0.78, label="Cluster id")
+    fig.colorbar(tsne_label_points, ax=axes[1, 0], shrink=0.78, label="Node label")
+    fig.colorbar(tsne_cluster_points, ax=axes[1, 1], shrink=0.78, label="Cluster id")
 
-    plotted_text = (
-        f"plotted nodes={len(sample_idx)}/{int(data.num_nodes)}"
-        if len(sample_idx) < int(data.num_nodes)
-        else f"nodes={int(data.num_nodes)}"
+    tsne_text = (
+        f"t-SNE nodes={len(tsne_idx)}/{int(data.num_nodes)}"
+        if len(tsne_idx) < int(data.num_nodes)
+        else f"t-SNE nodes={int(data.num_nodes)}"
     )
     fig.suptitle(
-        f"{dataset_name}: propagated-label t-SNE | "
+        f"{dataset_name}: propagated-label PCA and t-SNE | "
         f"{dataset_metric_summary(dataset_name, data)}\n"
         f"hops={cfg_get(cfg, 'propagated_label_num_hops', 3)} | "
         f"decay={cfg_get(cfg, 'propagated_label_decay', 0.5)} | "
-        f"selected k={selected_k} | seed={strat_seed} | {plotted_text}",
+        f"selected k={selected_k} | seed={strat_seed} | PCA nodes={int(data.num_nodes)} | {tsne_text}",
         fontsize=15,
         fontweight="bold",
     )

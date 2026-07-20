@@ -40,6 +40,7 @@ propagated_label_gap_reference_runs: 5
 propagated_label_gap_progress: true
 propagated_label_gap_plot_extra_k: 5
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
+propagated_label_tsne_max_nodes: 1000
 plot_propagated_label_clusters: true
 plot_gap_statistic_curve: true
 
