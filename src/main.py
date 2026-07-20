@@ -151,6 +151,7 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
+    print(f"Creating propagated-label cluster plot for {dataset_id}...")
     plot_propagated_label_clusters(
         cfg=cfg,
         dataset_name=dataset_id,
@@ -159,6 +160,7 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data):
         save_figure=True,
         output_dir=cfg.run_output_dir,
     )
+    print(f"Finished propagated-label cluster plot for {dataset_id}.")
 
 
 def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
@@ -169,6 +171,7 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
+    print(f"Creating gap-statistic plot for {dataset_id}...")
     plot_gap_statistic_curve(
         cfg=cfg,
         dataset_name=dataset_id,
@@ -177,6 +180,7 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
         save_figure=True,
         output_dir=cfg.run_output_dir,
     )
+    print(f"Finished gap-statistic plot for {dataset_id}.")
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")

@@ -145,6 +145,7 @@ def plot_propagated_label_clusters(
 
     sample_idx = sample_nodes(len(distributions), max_tsne_nodes, strat_seed)
     sampled_distributions = distributions[sample_idx]
+    print(f"Computing t-SNE for {dataset_name} on {len(sample_idx)} propagated-label vectors...")
     embedding = fit_tsne(sampled_distributions, strat_seed)
     label_colors = data.y.detach().cpu().numpy()[sample_idx]
     cluster_colors = cluster_ids[sample_idx]

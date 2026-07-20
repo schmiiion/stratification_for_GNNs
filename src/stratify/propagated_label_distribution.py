@@ -235,6 +235,16 @@ def _gap_statistic_score(distributions, cluster_count, rng, reference_runs, lowe
     }
 
 
+def _make_progress_bar(total, enabled, label):
+    if not enabled:
+        return None
+    try:
+        from tqdm.auto import tqdm
+    except ImportError:
+        return None
+    return tqdm(total=total, desc=label, unit="k")
+
+
 def compute_gap_statistic_curve(
     distributions,
     seed,
@@ -245,6 +255,8 @@ def compute_gap_statistic_curve(
     min_nodes_per_fold=5,
     min_k=2,
     max_k=50,
+    show_progress=True,
+    progress_label="Gap statistic curve",
 ):
     """
     Compute Gap(k) for every k in the configured range.
@@ -268,17 +280,32 @@ def compute_gap_statistic_curve(
     rng = np.random.default_rng(int(seed))
     lower = distributions.min(axis=0)
     upper = distributions.max(axis=0)
-    return [
-        _gap_statistic_score(
-            distributions=distributions,
-            cluster_count=cluster_count,
-            rng=rng,
-            reference_runs=reference_runs,
-            lower=lower,
-            upper=upper,
-        )
-        for cluster_count in cluster_counts
-    ]
+    progress_bar = _make_progress_bar(
+        total=len(cluster_counts),
+        enabled=show_progress,
+        label=progress_label,
+    )
+
+    curve = []
+    try:
+        for cluster_count in cluster_counts:
+            curve.append(
+                _gap_statistic_score(
+                    distributions=distributions,
+                    cluster_count=cluster_count,
+                    rng=rng,
+                    reference_runs=reference_runs,
+                    lower=lower,
+                    upper=upper,
+                )
+            )
+            if progress_bar is not None:
+                progress_bar.update(1)
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
+
+    return curve
 
 
 def select_gap_statistic_cluster_count_from_curve(curve):
@@ -302,6 +329,8 @@ def select_gap_statistic_cluster_counts(
     min_nodes_per_fold=5,
     min_k=2,
     max_k=50,
+    show_progress=True,
+    progress_label="Gap statistic selection",
 ):
     """
     Select k using the original gap-statistic stopping rule.
@@ -328,13 +357,26 @@ def select_gap_statistic_cluster_counts(
     rng = np.random.default_rng(int(seed))
     lower = distributions.min(axis=0)
     upper = distributions.max(axis=0)
+    progress_bar = _make_progress_bar(
+        total=len(cluster_counts),
+        enabled=show_progress,
+        label=progress_label,
+    )
 
-    current = _gap_statistic_score(distributions, cluster_counts[0], rng, reference_runs, lower, upper)
-    for next_k in cluster_counts[1:]:
-        following = _gap_statistic_score(distributions, next_k, rng, reference_runs, lower, upper)
-        if current["gap"] >= following["gap"] - following["reference_se"]:
-            return [int(current["k"])]
-        current = following
+    try:
+        current = _gap_statistic_score(distributions, cluster_counts[0], rng, reference_runs, lower, upper)
+        if progress_bar is not None:
+            progress_bar.update(1)
+        for next_k in cluster_counts[1:]:
+            following = _gap_statistic_score(distributions, next_k, rng, reference_runs, lower, upper)
+            if progress_bar is not None:
+                progress_bar.update(1)
+            if current["gap"] >= following["gap"] - following["reference_se"]:
+                return [int(current["k"])]
+            current = following
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
 
     return [int(current["k"])]
 

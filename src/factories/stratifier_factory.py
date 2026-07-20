@@ -111,6 +111,8 @@ def get_property_variants(cfg, property_name, seed, data=None, dataset_name=None
             min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
             min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
             max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
+            show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
+            progress_label=f"Gap statistic {dataset_name} seed={seed}",
         )
         print(f"Gap statistic selected propagated-label cluster count: {cluster_counts[0]}")
     else:

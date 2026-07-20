@@ -39,7 +39,7 @@ def load_dataset(dataset_name):
     return DatasetFactory.get_dataset(name=dataset_name)
 
 
-def compute_curve_from_data(cfg, data, strat_seed):
+def compute_curve_from_data(cfg, data, strat_seed, dataset_name="dataset"):
     distributions = compute_propagated_label_distribution(
         data=data,
         num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
@@ -55,6 +55,8 @@ def compute_curve_from_data(cfg, data, strat_seed):
         min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
         min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
         max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
+        show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
+        progress_label=f"Gap curve {dataset_name} seed={strat_seed}",
     )
 
 
@@ -81,7 +83,7 @@ def plot_gap_statistic_curve(
     output_dir=None,
     show=True,
 ):
-    curve = compute_curve_from_data(cfg, data, strat_seed)
+    curve = compute_curve_from_data(cfg, data, strat_seed, dataset_name)
     if not curve:
         raise ValueError("Cannot plot gap statistic curve because no k values were evaluated.")
 
