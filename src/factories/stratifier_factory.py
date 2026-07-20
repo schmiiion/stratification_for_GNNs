@@ -63,11 +63,14 @@ def _print_propagated_label_k_cap(cfg, data, dataset_name):
         num_folds=cfg_get(cfg, "num_folds", 5),
         min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
     )
-    max_k = max(1, num_nodes // effective_min_cluster_size)
+    dataset_max_k = max(1, num_nodes // effective_min_cluster_size)
+    configured_max_k = cfg_get(cfg, "propagated_label_gap_max_k", 50)
+    max_k = min(dataset_max_k, max(1, int(configured_max_k)))
     print_key = (
         str(dataset_name),
         num_nodes,
         effective_min_cluster_size,
+        dataset_max_k,
         max_k,
     )
     if print_key in _PRINTED_PROPAGATED_LABEL_K_CAPS:
@@ -77,7 +80,8 @@ def _print_propagated_label_k_cap(cfg, data, dataset_name):
     print(
         "Propagated-label KMeans cap "
         f"for {dataset_name}: nodes={num_nodes}, "
-        f"effective_min_cluster_size={effective_min_cluster_size}, max_k={max_k}, "
+        f"effective_min_cluster_size={effective_min_cluster_size}, "
+        f"dataset_max_k={dataset_max_k}, used_max_k={max_k}, "
         f"nodes_per_cluster_at_max_k=({_format_cluster_size_summary(num_nodes, max_k)})"
     )
 
@@ -106,6 +110,7 @@ def get_property_variants(cfg, property_name, seed, data=None, dataset_name=None
             num_folds=cfg_get(cfg, "num_folds", 5),
             min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
             min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
+            max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
         )
         print(f"Gap statistic selected propagated-label cluster count: {cluster_counts[0]}")
     else:
