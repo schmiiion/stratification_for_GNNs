@@ -90,7 +90,7 @@ def fit_tsne(distributions, strat_seed):
     return TSNE(
         n_components=2,
         perplexity=perplexity,
-        init="pca",
+        init="random",
         learning_rate="auto",
         random_state=strat_seed,
         n_jobs=1,
@@ -98,10 +98,14 @@ def fit_tsne(distributions, strat_seed):
 
 
 def fit_pca(distributions):
+    distributions = np.asarray(distributions, dtype=float)
     centered = distributions - distributions.mean(axis=0, keepdims=True)
-    _, _, vt = np.linalg.svd(centered, full_matrices=False)
-    embedding = centered @ vt[:2].T
-    if embedding.shape[1] == 1:
+    covariance = centered.T @ centered / max(1, centered.shape[0] - 1)
+    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+    component_order = np.argsort(eigenvalues)[::-1]
+    components = eigenvectors[:, component_order[:2]]
+    embedding = centered @ components
+    if embedding.shape[1] < 2:
         embedding = np.column_stack([embedding[:, 0], np.zeros(len(embedding))])
     return embedding
 
@@ -161,13 +165,21 @@ def plot_propagated_label_clusters(
 
     labels = data.y.detach().cpu().numpy()
 
-    print(f"Computing PCA for {dataset_name} on {len(distributions)} propagated-label vectors...")
+    print(
+        f"Computing PCA for {dataset_name} on {len(distributions)} propagated-label vectors...",
+        flush=True,
+    )
     pca_embedding = fit_pca(distributions)
+    print(f"Finished PCA for {dataset_name}.", flush=True)
 
     tsne_idx = sample_nodes(len(distributions), max_tsne_nodes, strat_seed)
     tsne_distributions = distributions[tsne_idx]
-    print(f"Computing t-SNE for {dataset_name} on {len(tsne_idx)} propagated-label vectors...")
+    print(
+        f"Computing t-SNE for {dataset_name} on {len(tsne_idx)} propagated-label vectors...",
+        flush=True,
+    )
     tsne_embedding = fit_tsne(tsne_distributions, strat_seed)
+    print(f"Finished t-SNE for {dataset_name}.", flush=True)
 
     fig, axes = plt.subplots(2, 2, figsize=(18, 14), dpi=180, constrained_layout=True)
     pca_label_points = scatter(

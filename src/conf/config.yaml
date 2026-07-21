@@ -16,7 +16,7 @@ num_workers: 4
 
 stratification_types: ["random", "label", "property"] #["property"]
 #properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]
-properties: ["Neighborhood Heterogeneity", "Propagated Label Cluster"]
+properties: ["Propagated Label Cluster"]
 sampling_method: "sklearn" # "ga" or "sklearn"
 skf_num_bins: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500] # scalar sklearn candidates; best EMD is used
 
@@ -73,7 +73,7 @@ datasets: [
 #    "roman_empire",
 #    "cornell",
 #    "amazon_ratings",
-    "coauthor_cs",
+#    "coauthor_cs",
     "coauthor_physics",
     "WikiCS",
 #     "syn-cora",
