@@ -26,7 +26,7 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
     edge_index = data.edge_index.detach().to(labels.device)
     source, target = edge_index[0], edge_index[1]
 
-    current = F.one_hot(labels, num_classes=num_classes).float()
+    current = F.one_hot(labels, num_classes=num_classes).float() # used as starting point for multiplication witn the row-normalized adj, matrix.
     accumulated = torch.zeros((num_nodes, num_classes), device=labels.device)
     deg = torch.bincount(target, minlength=num_nodes).float().clamp(min=1.0)
 
@@ -35,17 +35,17 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
         propagated.index_add_(0, target, current[source])
         propagated = propagated / deg[:, None]
 
+        #enforce the decaying from 0 to num_hops
         weight = decay ** hop
         accumulated = accumulated + weight * propagated
         current = propagated
 
     row_sums = accumulated.sum(dim=1, keepdim=True)
-    has_signal = row_sums.squeeze(1) > 0
+    has_signal = row_sums.squeeze(1) > 0 #dont normalize whgere we have 0 accumulated mass
     accumulated[has_signal] = accumulated[has_signal] / row_sums[has_signal]
 
-    if not bool(has_signal.all()):
-        global_prior = F.one_hot(labels, num_classes=num_classes).float().mean(dim=0)
-        accumulated[~has_signal] = global_prior
+    if not bool(has_signal.all()): #
+        raise ValueError("There seems to be a disconnected node")
 
     return accumulated.cpu().numpy()
 
