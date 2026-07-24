@@ -1,0 +1,363 @@
+from pathlib import Path
+import sys
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from utils.dataset_reference_metrics import (
+    canonical_dataset_key,
+    dataset_graph_size_text,
+    dataset_homophily_text,
+    dataset_li_text,
+)
+
+
+CUMULATIVE_RESULTS_FILE = SRC_ROOT / "logs/runs/cumulative_results.csv"
+
+# Leave empty to plot every dataset found in the cumulative results file.
+DATASETS_TO_PLOT = []
+INCLUDE_SYN_CORA = False
+DEDUPLICATE_SEEDED_RUNS = True
+EXPECTED_NUM_FOLDS = 5
+MAX_SANITY_EXAMPLES = 8
+MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN", "MLP"]
+METHOD_ORDER = [
+    "Random",
+    "Label",
+    "Neighborhood Heterogeneity",
+    "Neighborhood Distribution",
+]
+METHOD_LABELS = {
+    "Random": "Random",
+    "Label": "Label",
+    "Neighborhood Heterogeneity": "Neigh.\nHet.",
+    "Neighborhood Distribution": "Neigh.\nDistribution",
+}
+
+
+DATASET_DISPLAY_NAMES = {
+    "actor": "Actor",
+    "amazon-computers": "Computers",
+    "amazon-photo": "Photo",
+    "amazon-ratings": "amazon_ratings",
+    "chameleon": "chameleon",
+    "citeseer": "CiteSeer",
+    "coauthor-cs": "CoauthorCS",
+    "coauthor-physics": "CoauthorPhysics",
+    "cora": "Cora",
+    "cornell": "cornell",
+    "crocodile": "crocodile",
+    "photo": "Photo",
+    "pubmed": "PubMed",
+    "roman-empire": "roman_empire",
+    "squirrel": "squirrel",
+    "texas": "Texas",
+    "wikics": "WikiCS",
+    "wisconsin": "wisconsin",
+}
+
+
+def display_dataset_name(dataset_name):
+    key = canonical_dataset_key(dataset_name)
+    if key.startswith("syn-cora"):
+        return str(dataset_name)
+    return DATASET_DISPLAY_NAMES.get(key, str(dataset_name))
+
+
+def method_from_stratifier(stratifier):
+    stratifier = str(stratifier)
+    if stratifier == "RandomKFold":
+        return "Random"
+    if stratifier == "LabelStratifiedKFold":
+        return "Label"
+    if stratifier == "WDES_NeighHet" or stratifier.startswith("Sklearn_NeighHet"):
+        return "Neighborhood Heterogeneity"
+    if stratifier.startswith("StratifiedKFoldDynamic_NeighHet"):
+        return "Neighborhood Heterogeneity"
+    if "PropLabelCluster" in stratifier:
+        return "Neighborhood Distribution"
+    return None
+
+
+def load_cumulative_results():
+    if not CUMULATIVE_RESULTS_FILE.exists():
+        raise FileNotFoundError(
+            f"{CUMULATIVE_RESULTS_FILE} does not exist. "
+            "Run src/one_time_scripts/build_cumulative_results.py first."
+        )
+
+    df = pd.read_csv(CUMULATIVE_RESULTS_FILE)
+    required = {
+        "Dataset",
+        "Model",
+        "StratificationType",
+        "Fold_Seed",
+        "Init_Seed",
+        "Fold",
+        "Test_Accuracy",
+    }
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{CUMULATIVE_RESULTS_FILE} is missing required columns: {sorted(missing)}"
+        )
+
+    df["DatasetDisplay"] = df["Dataset"].map(display_dataset_name)
+    df["DatasetKey"] = df["Dataset"].map(canonical_dataset_key)
+    df["Method"] = df["StratificationType"].map(method_from_stratifier)
+    df = df[df["Method"].notna()].copy()
+    if df.empty:
+        raise ValueError("No rows matched the requested stratification methods.")
+
+    df["AccuracyPercent"] = pd.to_numeric(df["Test_Accuracy"], errors="raise")
+    if df["AccuracyPercent"].max() <= 1.0:
+        df["AccuracyPercent"] *= 100.0
+
+    if DEDUPLICATE_SEEDED_RUNS:
+        dedup_keys = [
+            "DatasetKey",
+            "Model",
+            "StratificationType",
+            "Fold_Seed",
+            "Init_Seed",
+            "Fold",
+        ]
+        duplicate_groups = (
+            df.groupby(dedup_keys, as_index=False, dropna=False)
+            .agg(
+                RowCount=("AccuracyPercent", "size"),
+                AccuracyCount=("AccuracyPercent", "nunique"),
+            )
+        )
+        conflicting_duplicates = duplicate_groups[
+            (duplicate_groups["RowCount"] > 1)
+            & (duplicate_groups["AccuracyCount"] > 1)
+        ]
+        if not conflicting_duplicates.empty:
+            print(
+                "WARNING: Found duplicated seeded rows with different accuracies. "
+                "Keeping the first occurrence. Examples:"
+            )
+            print(conflicting_duplicates.head(MAX_SANITY_EXAMPLES).to_string(index=False))
+
+        before = len(df)
+        df = df.drop_duplicates(subset=dedup_keys, keep="first").copy()
+        removed = before - len(df)
+        if removed:
+            print(f"Removed {removed} duplicated seeded run rows before aggregation.")
+
+    return df
+
+
+def summarize_fold_dispersion(df):
+    exact_estimates = (
+        df.groupby(
+            [
+                "DatasetKey",
+                "DatasetDisplay",
+                "Model",
+                "Method",
+                "StratificationType",
+                "Fold_Seed",
+                "Init_Seed",
+            ],
+            as_index=False,
+        )
+        .agg(
+            FoldStd=("AccuracyPercent", "std"),
+            FoldCount=("AccuracyPercent", "size"),
+            UniqueFolds=("Fold", "nunique"),
+        )
+    )
+
+    invalid_fold_groups = exact_estimates[
+        (exact_estimates["FoldCount"] != EXPECTED_NUM_FOLDS)
+        | (exact_estimates["UniqueFolds"] != EXPECTED_NUM_FOLDS)
+    ]
+    if not invalid_fold_groups.empty:
+        print(
+            f"WARNING: Dropping {len(invalid_fold_groups)} seeded groups that do not "
+            f"contain exactly {EXPECTED_NUM_FOLDS} unique folds. Examples:"
+        )
+        print(invalid_fold_groups.head(MAX_SANITY_EXAMPLES).to_string(index=False))
+
+    exact_estimates = exact_estimates[
+        (exact_estimates["FoldCount"] == EXPECTED_NUM_FOLDS)
+        & (exact_estimates["UniqueFolds"] == EXPECTED_NUM_FOLDS)
+    ].copy()
+
+    seeded_estimates = (
+        exact_estimates.groupby(
+            ["DatasetKey", "DatasetDisplay", "Model", "Method", "Fold_Seed", "Init_Seed"],
+            as_index=False,
+        )
+        .agg(
+            SeedPairFoldStd=("FoldStd", "mean"),
+            RawStratificationVariants=("StratificationType", "nunique"),
+        )
+    )
+
+    multi_variant_groups = seeded_estimates[seeded_estimates["RawStratificationVariants"] > 1]
+    if not multi_variant_groups.empty:
+        print(
+            "INFO: Some displayed methods contain multiple raw StratificationType variants "
+            "for the same Fold_Seed/Init_Seed. Their fold stds are averaged before counting n. "
+            "Examples:"
+        )
+        print(multi_variant_groups.head(MAX_SANITY_EXAMPLES).to_string(index=False))
+
+    return (
+        seeded_estimates.groupby(
+            ["DatasetKey", "DatasetDisplay", "Model", "Method"],
+            as_index=False,
+        )
+        .agg(
+            MeanFoldStd=("SeedPairFoldStd", "mean"),
+            NumEstimates=("SeedPairFoldStd", "size"),
+            NumFoldSeeds=("Fold_Seed", "nunique"),
+            NumInitSeeds=("Init_Seed", "nunique"),
+        )
+    )
+
+
+def dataset_sort_key(dataset_name):
+    key = canonical_dataset_key(dataset_name)
+    preferred = [
+        "cora",
+        "citeseer",
+        "pubmed",
+        "amazon-computers",
+        "amazon-photo",
+        "chameleon",
+        "squirrel",
+        "wisconsin",
+        "texas",
+        "actor",
+        "roman-empire",
+        "cornell",
+        "amazon-ratings",
+        "coauthor-cs",
+        "coauthor-physics",
+        "wikics",
+    ]
+    if key in preferred:
+        return (0, preferred.index(key), str(dataset_name))
+    return (1, str(dataset_name).lower(), str(dataset_name))
+
+
+def plot_dataset_table(dataset_name, stats):
+    dataset_stats = stats[stats["DatasetDisplay"] == dataset_name]
+    models = [model for model in MODEL_ORDER if model in set(dataset_stats["Model"])]
+    if not models:
+        return
+
+    table_rows = []
+    bold_cells = set()
+    for row_idx, model in enumerate(models, start=1):
+        model_stats = dataset_stats[dataset_stats["Model"] == model]
+        best_std = model_stats["MeanFoldStd"].min()
+        row = [model]
+
+        for col_idx, method in enumerate(METHOD_ORDER, start=1):
+            values = model_stats[model_stats["Method"] == method]
+            if values.empty:
+                row.append("n/a")
+                continue
+
+            fold_std = float(values.iloc[0]["MeanFoldStd"])
+            num_estimates = int(values.iloc[0]["NumEstimates"])
+            row.append(f"Fold Std {fold_std:.2f}\nn={num_estimates}")
+            if abs(fold_std - best_std) < 1e-12:
+                bold_cells.add((row_idx, col_idx))
+
+        table_rows.append(row)
+
+    max_n = int(dataset_stats["NumEstimates"].max())
+    title_line = (
+        f"{dataset_name}: Aggregated Accuracy Dispersion | "
+        f"{dataset_homophily_text(dataset_name)} | n<= {max_n}"
+    )
+    metadata_line = f"{dataset_graph_size_text(dataset_name)} | {dataset_li_text(dataset_name)}"
+
+    fig, ax = plt.subplots(figsize=(13.5, max(6.5, 0.85 * len(models) + 2.8)))
+    ax.axis("off")
+    fig.text(0.5, 0.965, title_line, ha="center", va="top", fontsize=16, fontweight="bold")
+    fig.text(0.5, 0.915, metadata_line, ha="center", va="top", fontsize=12.5, fontweight="bold")
+    fig.text(
+        0.5,
+        0.855,
+        "Each cell reports the mean fold-wise standard deviation of test accuracy. "
+        "n counts unique Fold_Seed/Init_Seed pairs; raw variants within a displayed method "
+        "are averaged before n is counted.",
+        ha="center",
+        va="center",
+        fontsize=10.5,
+    )
+
+    table = ax.table(
+        cellText=table_rows,
+        colLabels=["Model", *[METHOD_LABELS[method] for method in METHOD_ORDER]],
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+        bbox=[0.04, 0.06, 0.92, 0.70],
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.0, 1.85)
+
+    for (row_idx, col_idx), cell in table.get_celld().items():
+        cell.visible_edges = "horizontal"
+        cell.set_edgecolor("#333333")
+        cell.set_linewidth(0.6)
+        cell.get_text().set_wrap(True)
+        cell.get_text().set_linespacing(1.05)
+
+        if row_idx == 0:
+            cell.set_text_props(weight="bold")
+            cell.set_facecolor("#f0f0f0")
+            cell.set_linewidth(1.0)
+        elif col_idx == 0:
+            cell.set_text_props(weight="bold")
+            cell.set_facecolor("#fafafa")
+        elif (row_idx, col_idx) in bold_cells:
+            cell.set_text_props(weight="bold")
+        elif row_idx % 2 == 0:
+            cell.set_facecolor("#fbfbfb")
+
+    print(f"Rendering {dataset_name}: {len(dataset_stats)} aggregated cells")
+    plt.show()
+
+
+def main():
+    df = load_cumulative_results()
+    stats = summarize_fold_dispersion(df)
+
+    datasets = [display_dataset_name(dataset) for dataset in DATASETS_TO_PLOT]
+    if not datasets:
+        datasets = sorted(stats["DatasetDisplay"].unique(), key=dataset_sort_key)
+    if not INCLUDE_SYN_CORA:
+        datasets = [
+            dataset for dataset in datasets
+            if not canonical_dataset_key(dataset).startswith("syn-cora")
+        ]
+
+    print(f"Loaded {len(df)} relevant rows from {CUMULATIVE_RESULTS_FILE}.")
+    print("Included methods:", ", ".join(METHOD_ORDER))
+    print("Datasets:", ", ".join(datasets))
+
+    for dataset_name in datasets:
+        if dataset_name not in set(stats["DatasetDisplay"]):
+            print(f"Skipping {dataset_name}: no matching rows.")
+            continue
+        plot_dataset_table(dataset_name, stats)
+
+
+if __name__ == "__main__":
+    main()
