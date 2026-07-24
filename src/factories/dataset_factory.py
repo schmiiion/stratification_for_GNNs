@@ -69,6 +69,10 @@ class DatasetFactory:
         "amazon_ratings": Path("amazon_ratings/amazon_ratings.npz"),
     }
 
+    _WIKIPEDIA_NPZ_DATASET_FILES = {
+        "crocodile": Path("crocodile/crocodile.npz"),
+    }
+
     _DEFAULT_HETEROPHILOUS_ROOT = (
         Path(__file__).resolve().parents[1] / "data"
     )
@@ -148,6 +152,28 @@ class DatasetFactory:
             dataset = DatasetClass(root=data_path, name=coauthor_name)
         elif DatasetClass == WikiCS:
             dataset = DatasetClass(root=data_path)
+        elif DatasetClass == WikipediaNetwork and registry_name == "crocodile":
+            local_data_path = cls._resolve_wikipedia_npz_data_path(
+                root_dir=Path(root_dir),
+                name=registry_name,
+            )
+            if local_data_path.exists():
+                return cls.load_wikipedia_npz_dataset(
+                    name=registry_name,
+                    data_path=local_data_path,
+                )
+            candidate_text = ", ".join(
+                str(path) for path in cls._wikipedia_npz_path_candidates(
+                    root_dir=Path(root_dir),
+                    name=registry_name,
+                )
+            )
+            raise FileNotFoundError(
+                "Crocodile is not downloaded automatically because PyG's remote "
+                "host is unreliable for this file. Download "
+                "https://graphmining.ai/datasets/ptg/wiki/crocodile.npz "
+                f"manually and place it at one of: {candidate_text}"
+            )
         else:
             dataset = DatasetClass(root=data_path, name=registry_name)
 
@@ -303,6 +329,67 @@ class DatasetFactory:
         cls.attach_graph_characteristics(data, canonical_name)
 
         return dataset, input_dim, output_dim, data
+
+    @classmethod
+    def load_wikipedia_npz_dataset(
+            cls,
+            name: str,
+            data_path: str | Path):
+        """
+        Load PyG WikipediaNetwork-style NPZ files without invoking PyG download.
+
+        This is useful for Crocodile, whose non-Geom-GCN raw file is hosted at:
+        https://graphmining.ai/datasets/ptg/wiki/crocodile.npz
+        """
+        data_path = Path(data_path)
+        with np.load(data_path) as raw:
+            x = torch.from_numpy(raw["features"]).to(torch.float32)
+            y = torch.from_numpy(raw["target"]).to(torch.long)
+            edge_index = torch.from_numpy(raw["edges"]).to(torch.long).t().contiguous()
+
+        edge_index = cls.standardize_paper_edge_index(
+            edge_index,
+            num_nodes=x.size(0),
+        )
+        data = Data(x=x, y=y, edge_index=edge_index, num_nodes=x.size(0))
+
+        input_dim = data.num_features
+        output_dim = int(y.max().item()) + 1
+        dataset = SimpleNamespace(
+            name=name,
+            num_features=input_dim,
+            num_classes=output_dim,
+            source_path=str(data_path),
+        )
+
+        print(f"Nodes: {data.num_nodes}")
+        print(f"Edges: {data.num_edges}")
+        print(f"Features: {input_dim}")
+        print(f"Classes: {output_dim}")
+        print(f"Source: {data_path}")
+
+        cls.validate_edge_index_topology(data.edge_index, data.num_nodes)
+        cls.attach_graph_characteristics(data, name)
+
+        return dataset, input_dim, output_dim, data
+
+    @classmethod
+    def _wikipedia_npz_path_candidates(cls, root_dir: Path, name: str):
+        relative_path = cls._WIKIPEDIA_NPZ_DATASET_FILES[name]
+        pyg_root = root_dir / name
+        return [
+            cls._DEFAULT_HETEROPHILOUS_ROOT / relative_path,
+            cls._DEFAULT_HETEROPHILOUS_ROOT / relative_path.name,
+            pyg_root / name / "raw" / relative_path.name,
+            pyg_root / "raw" / relative_path.name,
+        ]
+
+    @classmethod
+    def _resolve_wikipedia_npz_data_path(cls, root_dir: Path, name: str):
+        for path in cls._wikipedia_npz_path_candidates(root_dir=root_dir, name=name):
+            if path.exists():
+                return path
+        return cls._wikipedia_npz_path_candidates(root_dir=root_dir, name=name)[0]
 
     @staticmethod
     def _canonical_heterophilous_name(name: str):

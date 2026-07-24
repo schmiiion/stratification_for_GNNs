@@ -204,7 +204,8 @@ def main(cfg: DictConfig):
     metrics_writer.start()
 
     # num_workers = max(1, multiprocessing.cpu_count() - 2)
-    num_workers = int(cfg.get("num_workers", 4))
+    #num_workers = int(cfg.get("num_workers", 4))
+    num_workers = 2
     print(f"Starting ProcessPoolExecutor with {num_workers} workers.")
 
     # DATASET LOOP

@@ -1,8 +1,11 @@
 from pathlib import Path
+from datetime import datetime
+import shutil
 import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import BoundaryNorm, ListedColormap
 from omegaconf import OmegaConf
 
 
@@ -17,6 +20,7 @@ from stratify.propagated_label_distribution import (
     compute_propagated_label_distribution,
     select_gap_statistic_cluster_counts,
 )
+from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
 from utils.dataset_reference_metrics import dataset_metric_summary
 from utils.experiment_utils import as_list, dataset_suffix
 
@@ -24,11 +28,11 @@ from utils.experiment_utils import as_list, dataset_suffix
 # Main switches for this diagnostic plot.
 DATASET_NAME = "Cora"
 STRAT_SEED = 0
-MAX_TSNE_NODES = 1000
-SAVE_FIGURE = False
+MAX_TSNE_NODES = 5000
+SAVE_FIGURE = True
 
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
-OUTPUT_ROOT = SRC_ROOT / "logs/runs"
+PLOT_OUTPUT_ROOT = SRC_ROOT / "logs/plots"
 
 
 def cfg_get(cfg, key, default):
@@ -37,11 +41,49 @@ def cfg_get(cfg, key, default):
     return getattr(cfg, key, default)
 
 
-def load_dataset(dataset_name):
-    canonical_name = str(dataset_name).replace("_", "-").lower()
-    if canonical_name.startswith("syn-cora-h"):
-        return DatasetFactory.get_dataset(name=dataset_name)
-    return DatasetFactory.get_dataset(name=dataset_name)
+def create_plot_output_dir(dataset_names):
+    timestamp = datetime.now().strftime("%m%d-%H%M")
+    suffix = dataset_suffix(dataset_names)
+    output_dir = PLOT_OUTPUT_ROOT / f"{timestamp}_{suffix}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(CONFIG_PATH, output_dir / "config.yaml")
+    return output_dir
+
+
+def create_dataset_plot_output_dir(run_output_dir, dataset_name):
+    safe_dataset_name = str(dataset_name).replace("/", "_").replace(" ", "_")
+    output_dir = Path(run_output_dir) / safe_dataset_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def configured_dataset_requests(cfg):
+    for dataset_name in as_list(cfg_get(cfg, "datasets", [DATASET_NAME])):
+        canonical_name = str(dataset_name).replace("_", "-").lower()
+        if canonical_name != "syn-cora":
+            yield str(dataset_name), {"name": str(dataset_name)}
+            continue
+
+        ratios = cfg_get(cfg, "syn_cora_ratios", None)
+        if ratios is None:
+            ratios = cfg_get(cfg, "syn-cora-ratio", None)
+        if ratios is None:
+            ratios = cfg_get(cfg, "syn_cora_ratio", [0.70])
+
+        realizations = cfg_get(cfg, "syn_cora_realizations", None)
+        if realizations is None:
+            realizations = cfg_get(cfg, "syn-cora-realizations", [1])
+
+        for ratio in as_list(ratios):
+            for realization in as_list(realizations):
+                ratio_value = float(ratio)
+                realization_value = int(realization)
+                run_dataset_name = f"syn-cora-h{ratio_value:.2f}-r{realization_value}"
+                yield run_dataset_name, {
+                    "name": "syn-cora",
+                    "syn_cora_homophily": ratio_value,
+                    "syn_cora_realization": realization_value,
+                }
 
 
 def select_cluster_count(cfg, distributions, strat_seed):
@@ -110,22 +152,72 @@ def fit_pca(distributions):
     return embedding
 
 
-def scatter(ax, embedding, colors, title, cmap):
+def categorical_scatter(ax, embedding, values, title, cmap_name):
+    values = np.asarray(values, dtype=np.int64)
+    categories = np.unique(values)
+    encoded_values = np.searchsorted(categories, values)
+
+    base_cmap = plt.get_cmap(cmap_name)
+    listed_categorical_maps = {
+        "tab10",
+        "tab20",
+        "tab20b",
+        "tab20c",
+        "Set1",
+        "Set2",
+        "Set3",
+        "Accent",
+        "Dark2",
+        "Paired",
+        "Pastel1",
+        "Pastel2",
+    }
+    if (
+        cmap_name in listed_categorical_maps
+        and hasattr(base_cmap, "colors")
+        and len(base_cmap.colors) >= len(categories)
+    ):
+        color_values = base_cmap.colors[:len(categories)]
+    else:
+        color_values = base_cmap(np.linspace(0.05, 0.95, max(1, len(categories))))
+
+    cmap = ListedColormap(color_values)
+    norm = BoundaryNorm(
+        np.arange(len(categories) + 1) - 0.5,
+        cmap.N,
+    )
     points = ax.scatter(
         embedding[:, 0],
         embedding[:, 1],
-        c=colors,
+        c=encoded_values,
         s=7,
         alpha=0.78,
         linewidths=0,
         cmap=cmap,
+        norm=norm,
     )
     ax.set_title(title, fontsize=13, fontweight="bold")
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_visible(False)
-    return points
+    return points, categories
+
+
+def add_categorical_colorbar(fig, points, ax, categories, label):
+    ticks = np.arange(len(categories))
+    colorbar = fig.colorbar(
+        points,
+        ax=ax,
+        shrink=0.78,
+        ticks=ticks,
+        boundaries=np.arange(len(categories) + 1) - 0.5,
+    )
+    colorbar.ax.set_yticklabels([str(int(category)) for category in categories])
+    colorbar.set_label(label)
+    if len(categories) > 20:
+        colorbar.ax.tick_params(labelsize=6)
+    return colorbar
 
 
 def plot_propagated_label_clusters(
@@ -182,38 +274,38 @@ def plot_propagated_label_clusters(
     print(f"Finished t-SNE for {dataset_name}.", flush=True)
 
     fig, axes = plt.subplots(2, 2, figsize=(18, 14), dpi=180, constrained_layout=True)
-    pca_label_points = scatter(
+    pca_label_points, pca_label_categories = categorical_scatter(
         axes[0, 0],
         pca_embedding,
         labels,
         "PCA before clustering\ncolor = node label",
         "tab20",
     )
-    pca_cluster_points = scatter(
+    pca_cluster_points, pca_cluster_categories = categorical_scatter(
         axes[0, 1],
         pca_embedding,
         cluster_ids,
         f"PCA after KMeans clustering\ncolor = cluster id, selected k={selected_k}",
-        "turbo",
+        "tab20",
     )
-    tsne_label_points = scatter(
+    tsne_label_points, tsne_label_categories = categorical_scatter(
         axes[1, 0],
         tsne_embedding,
         labels[tsne_idx],
         "t-SNE before clustering\ncolor = node label",
         "tab20",
     )
-    tsne_cluster_points = scatter(
+    tsne_cluster_points, tsne_cluster_categories = categorical_scatter(
         axes[1, 1],
         tsne_embedding,
         cluster_ids[tsne_idx],
         f"t-SNE after KMeans clustering\ncolor = cluster id, selected k={selected_k}",
-        "turbo",
+        "tab20",
     )
-    fig.colorbar(pca_label_points, ax=axes[0, 0], shrink=0.78, label="Node label")
-    fig.colorbar(pca_cluster_points, ax=axes[0, 1], shrink=0.78, label="Cluster id")
-    fig.colorbar(tsne_label_points, ax=axes[1, 0], shrink=0.78, label="Node label")
-    fig.colorbar(tsne_cluster_points, ax=axes[1, 1], shrink=0.78, label="Cluster id")
+    add_categorical_colorbar(fig, pca_label_points, axes[0, 0], pca_label_categories, "Node label")
+    add_categorical_colorbar(fig, pca_cluster_points, axes[0, 1], pca_cluster_categories, "Cluster id")
+    add_categorical_colorbar(fig, tsne_label_points, axes[1, 0], tsne_label_categories, "Node label")
+    add_categorical_colorbar(fig, tsne_cluster_points, axes[1, 1], tsne_cluster_categories, "Cluster id")
 
     tsne_text = (
         f"t-SNE nodes={len(tsne_idx)}/{int(data.num_nodes)}"
@@ -232,7 +324,7 @@ def plot_propagated_label_clusters(
 
     if save_figure:
         if output_dir is None:
-            output_dir = OUTPUT_ROOT / dataset_suffix([dataset_name])
+            output_dir = create_plot_output_dir([dataset_name])
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         output_path = output_dir / f"PropagatedLabelPCA_TSNEClusters_{dataset_name}_k{selected_k}.png"
@@ -249,16 +341,57 @@ def plot_propagated_label_clusters(
 
 def main():
     cfg = OmegaConf.load(CONFIG_PATH)
-    _, _, _, data = load_dataset(DATASET_NAME)
-    plot_propagated_label_clusters(
-        cfg=cfg,
-        dataset_name=DATASET_NAME,
-        data=data,
-        strat_seed=STRAT_SEED,
-        max_tsne_nodes=MAX_TSNE_NODES,
-        save_figure=SAVE_FIGURE,
-        show=True,
+    dataset_requests = list(configured_dataset_requests(cfg))
+    if not dataset_requests:
+        raise ValueError("No datasets configured in src/conf/config.yaml.")
+
+    fold_seeds = as_list(cfg_get(cfg, "fold_seeds", [STRAT_SEED]))
+    strat_seed = int(fold_seeds[0]) if fold_seeds else STRAT_SEED
+    output_dir = create_plot_output_dir([dataset_name for dataset_name, _ in dataset_requests])
+
+    print(
+        "Creating propagated-label PCA/t-SNE plots for configured datasets: "
+        f"{', '.join(dataset_name for dataset_name, _ in dataset_requests)}"
     )
+    print(f"Using stratification seed {strat_seed}.")
+    print(f"Saving figures to: {output_dir}")
+
+    for dataset_name, dataset_kwargs in dataset_requests:
+        print(f"\n{'=' * 40}\nDATASET: {dataset_name}\n{'=' * 40}")
+        try:
+            _, _, _, data = DatasetFactory.get_dataset(**dataset_kwargs)
+        except Exception as exc:
+            print(f"Skipping {dataset_name}: {exc}", flush=True)
+            continue
+
+        dataset_output_dir = create_dataset_plot_output_dir(output_dir, dataset_name)
+        print(f"Saving {dataset_name} plots to: {dataset_output_dir}")
+
+        try:
+            _, selected_k, _ = plot_gap_statistic_curve(
+                cfg=cfg,
+                dataset_name=dataset_name,
+                data=data,
+                strat_seed=strat_seed,
+                save_figure=SAVE_FIGURE,
+                output_dir=dataset_output_dir,
+                show=False,
+            )
+        except Exception as exc:
+            print(f"Skipping {dataset_name} plots because gap-statistic plotting failed: {exc}", flush=True)
+            continue
+
+        plot_propagated_label_clusters(
+            cfg=cfg,
+            dataset_name=dataset_name,
+            data=data,
+            strat_seed=strat_seed,
+            max_tsne_nodes=cfg_get(cfg, "propagated_label_tsne_max_nodes", MAX_TSNE_NODES),
+            save_figure=SAVE_FIGURE,
+            output_dir=dataset_output_dir,
+            show=False,
+            selected_k=selected_k,
+        )
 
 
 if __name__ == "__main__":
