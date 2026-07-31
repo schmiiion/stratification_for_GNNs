@@ -16,6 +16,7 @@ from utils.training_utils import (
     evaluate_mask,
     run_metrics_writer_process,
 )
+from stratify.baseclass import BaseNodeStratifier
 
 
 def worker_task(
@@ -146,6 +147,8 @@ def configured_dataset_requests(cfg):
 def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None):
     if not cfg.get("plot_propagated_label_clusters", False):
         return None
+    if not uses_property(cfg, "Propagated Label Cluster"):
+        return None
 
     from stratify.plot_propagated_label_clusters import plot_propagated_label_clusters
 
@@ -169,6 +172,8 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None)
 def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
     if not cfg.get("plot_gap_statistic_curve", False):
         return None
+    if not uses_property(cfg, "Propagated Label Cluster"):
+        return None
 
     from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
 
@@ -186,6 +191,15 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
     )
     print(f"Finished gap-statistic plot for {dataset_id}.")
     return plot_seed, selected_k
+
+
+def uses_property(cfg, property_name):
+    target_property = BaseNodeStratifier.canonical_property_name(property_name)
+    configured_properties = as_list(cfg.get("properties", []))
+    return any(
+        BaseNodeStratifier.canonical_property_name(configured_property) == target_property
+        for configured_property in configured_properties
+    )
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")

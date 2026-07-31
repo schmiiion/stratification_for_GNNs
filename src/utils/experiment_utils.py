@@ -35,9 +35,14 @@ DATASET_ABBREVIATIONS = {
 
 
 def as_list(value):
+    if value is None:
+        return []
     if isinstance(value, str):
         return [value]
-    return list(value)
+    try:
+        return list(value)
+    except TypeError:
+        return [value]
 
 
 def dataset_abbreviation(dataset_name):

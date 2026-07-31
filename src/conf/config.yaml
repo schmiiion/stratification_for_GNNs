@@ -1,5 +1,5 @@
 #init_seeds: [100,101,102,103,104,105,106,107,108,109]
-init_seeds: [100]
+init_seeds: [101]
 #  ,110,111,112,113,114,115,116,117,118,119]
 
 #fixed by our problem definition
@@ -14,8 +14,8 @@ num_folds: 5
 early_stopping_patience: 100
 num_workers: 4
 
-stratification_types: ["random", "label", "property"] #["property"]
-#properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]
+stratification_types:  ["property"] #["random", "label", "property"]
+#properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster", "Neighborhood Count"]
 properties: ["Propagated Label Cluster"]
 sampling_method: "sklearn" # "ga" or "sklearn"
 skf_num_bins: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500] # scalar sklearn candidates; best EMD is used
@@ -40,12 +40,26 @@ propagated_label_gap_reference_runs: 5
 propagated_label_gap_progress: true
 propagated_label_gap_plot_extra_k: 5
 propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
-propagated_label_tsne_max_nodes: 1000
+propagated_label_tsne_max_nodes: 5000
 plot_propagated_label_clusters: true
 plot_gap_statistic_curve: true
 
+#neighborhood label count - hyperparams
+neighborhood_count_num_hops: 3
+neighborhood_count_decay: 0.5
+neighborhood_count_log_scale: false
+neighborhood_count_cluster_selection: "gap_statistic" # "fixed" or "gap_statistic"
+neighborhood_count_gap_min_k: 2
+neighborhood_count_gap_max_k: 50
+neighborhood_count_min_cluster_size: 25
+neighborhood_count_min_cluster_fraction: 0.005
+neighborhood_count_min_nodes_per_fold: 5
+neighborhood_count_gap_reference_runs: 5
+neighborhood_count_gap_progress: true
+neighborhood_count_num_clusters: 50 # used when neighborhood_count_cluster_selection is "fixed"
+
 #logging of stratification properties
-fold_stat_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster"]
+fold_stat_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster", "Neighborhood Count"]
 log_fold_statistics: true
 
 # Used when "syn-cora" is present in datasets.
@@ -59,7 +73,7 @@ model_names: ["MLP", "GCN", "GAT", "SAGE","MixHop", "GPRGNN", "H2GCN"]
 #model_names: ["H2GCN"]
 
 datasets: [
-#"Cora",
+#    "Cora",
 #    "CiteSeer",
 #    "PubMed",
 #    "Computers",
@@ -68,14 +82,14 @@ datasets: [
 #   "squirrel",
 #    "crocodile",
 #   "wisconsin",
-#   "Texas",
-#    "actor",
-#    "roman_empire",
+   "Texas",
+    "actor",
+    "roman_empire",
 #    "cornell",
 #    "amazon_ratings",
 #    "coauthor_cs",
-    "coauthor_physics",
-    "WikiCS",
+#    "coauthor_physics",
+#    "WikiCS",
 #     "syn-cora",
 ]
 

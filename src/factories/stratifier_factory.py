@@ -3,6 +3,7 @@ import numpy as np
 from stratify.label_based_stratifier import LabelStratifiedKFold
 from stratify.propagated_label_distribution import (
     compute_effective_min_cluster_size,
+    compute_neighborhood_label_counts,
     compute_propagated_label_distribution,
     select_gap_statistic_cluster_counts,
 )
@@ -20,7 +21,19 @@ STRATIFIER_REGISTRY = {
 }
 
 PROPERTY_BASED_STRATIFIER_KEYS = {"property", "property_stratified", "wdes"}
-_PRINTED_PROPAGATED_LABEL_K_CAPS = set()
+_PRINTED_CLUSTERED_PROPERTY_K_CAPS = set()
+CLUSTERED_PROPERTIES = {
+    "Propagated Label Cluster": {
+        "label": "propagated-label",
+        "prefix": "propagated_label",
+        "compute_vectors": compute_propagated_label_distribution,
+    },
+    "Neighborhood Count": {
+        "label": "neighborhood-count",
+        "prefix": "neighborhood_count",
+        "compute_vectors": compute_neighborhood_label_counts,
+    },
+}
 
 
 def cfg_get(cfg, key, default):
@@ -51,34 +64,37 @@ def _format_cluster_size_summary(num_nodes, max_k):
     )
 
 
-def _print_propagated_label_k_cap(cfg, data, dataset_name):
+def _print_clustered_property_k_cap(cfg, data, dataset_name, canonical_property_name):
     if data is None:
         return
 
+    spec = CLUSTERED_PROPERTIES[canonical_property_name]
+    prefix = spec["prefix"]
     num_nodes = int(data.num_nodes)
     effective_min_cluster_size = compute_effective_min_cluster_size(
         num_nodes=num_nodes,
-        min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-        min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+        min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+        min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
         num_folds=cfg_get(cfg, "num_folds", 5),
-        min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
+        min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
     )
     dataset_max_k = max(1, num_nodes // effective_min_cluster_size)
-    configured_max_k = cfg_get(cfg, "propagated_label_gap_max_k", 50)
+    configured_max_k = cfg_get(cfg, f"{prefix}_gap_max_k", 50)
     max_k = min(dataset_max_k, max(1, int(configured_max_k)))
     print_key = (
         str(dataset_name),
+        canonical_property_name,
         num_nodes,
         effective_min_cluster_size,
         dataset_max_k,
         max_k,
     )
-    if print_key in _PRINTED_PROPAGATED_LABEL_K_CAPS:
+    if print_key in _PRINTED_CLUSTERED_PROPERTY_K_CAPS:
         return
 
-    _PRINTED_PROPAGATED_LABEL_K_CAPS.add(print_key)
+    _PRINTED_CLUSTERED_PROPERTY_K_CAPS.add(print_key)
     print(
-        "Propagated-label KMeans cap "
+        f"{spec['label'].capitalize()} KMeans cap "
         f"for {dataset_name}: nodes={num_nodes}, "
         f"effective_min_cluster_size={effective_min_cluster_size}, "
         f"dataset_max_k={dataset_max_k}, used_max_k={max_k}, "
@@ -99,48 +115,53 @@ def get_property_variants(
     property_variant_cache=None,
 ):
     canonical_name = WDESKFold.canonical_property_name(property_name)
-    if canonical_name != "Propagated Label Cluster":
+    if canonical_name not in CLUSTERED_PROPERTIES:
         return [(canonical_name, {})]
 
-    _print_propagated_label_k_cap(cfg, data, dataset_name)
+    spec = CLUSTERED_PROPERTIES[canonical_name]
+    prefix = spec["prefix"]
+    _print_clustered_property_k_cap(cfg, data, dataset_name, canonical_name)
     selection_method = str(
-        cfg_get(cfg, "propagated_label_cluster_selection", "fixed")
+        cfg_get(cfg, f"{prefix}_cluster_selection", "fixed")
     ).replace("-", "_").lower()
     if selection_method in {"gap", "gap_topk", "gap_statistic"} and data is not None:
         cache_key = property_cache_key(dataset_name, seed, canonical_name)
         if property_variant_cache is not None and cache_key in property_variant_cache:
             cluster_counts = [int(property_variant_cache[cache_key])]
             print(
-                "Reusing gap-statistic propagated-label cluster count "
+                f"Reusing gap-statistic {spec['label']} cluster count "
                 f"for {dataset_name} seed={seed}: {cluster_counts[0]}"
             )
         else:
-            distributions = compute_propagated_label_distribution(
-                data=data,
-                num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
-                decay=cfg_get(cfg, "propagated_label_decay", 0.5),
-            )
+            vector_kwargs = {
+                "data": data,
+                "num_hops": cfg_get(cfg, f"{prefix}_num_hops", 3),
+                "decay": cfg_get(cfg, f"{prefix}_decay", 0.5),
+            }
+            if canonical_name == "Neighborhood Count":
+                vector_kwargs["log_scale"] = cfg_get(cfg, "neighborhood_count_log_scale", False)
+            distributions = spec["compute_vectors"](**vector_kwargs)
             cluster_counts = select_gap_statistic_cluster_counts(
                 distributions=distributions,
                 seed=seed,
-                reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
-                min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-                min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+                reference_runs=cfg_get(cfg, f"{prefix}_gap_reference_runs", 5),
+                min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+                min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
                 num_folds=cfg_get(cfg, "num_folds", 5),
-                min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
-                min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
-                max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
-                show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
-                progress_label=f"Gap statistic {dataset_name} seed={seed}",
+                min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
+                min_k=cfg_get(cfg, f"{prefix}_gap_min_k", 2),
+                max_k=cfg_get(cfg, f"{prefix}_gap_max_k", 50),
+                show_progress=cfg_get(cfg, f"{prefix}_gap_progress", True),
+                progress_label=f"Gap statistic {spec['label']} {dataset_name} seed={seed}",
             )
-            print(f"Gap statistic selected propagated-label cluster count: {cluster_counts[0]}")
+            print(f"Gap statistic selected {spec['label']} cluster count: {cluster_counts[0]}")
             if property_variant_cache is not None:
                 property_variant_cache[cache_key] = int(cluster_counts[0])
     else:
-        cluster_counts = as_list(cfg_get(cfg, "propagated_label_num_clusters", [50]))
+        cluster_counts = as_list(cfg_get(cfg, f"{prefix}_num_clusters", [50]))
 
     return [
-        (canonical_name, {"propagated_label_num_clusters": int(cluster_count)})
+        (canonical_name, {f"{prefix}_num_clusters": int(cluster_count)})
         for cluster_count in cluster_counts
     ]
 

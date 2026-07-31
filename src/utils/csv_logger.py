@@ -39,6 +39,7 @@ class CsvLogger:
         "EigCentralityEmd",
         "ClusteringEmd",
         "PropLabelClusterTvd",
+        "NeighCountTvd",
     ]
 
     def __init__(self, cfg):

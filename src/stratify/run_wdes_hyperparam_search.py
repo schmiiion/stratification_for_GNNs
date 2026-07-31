@@ -66,7 +66,7 @@ def run_property_stratified_kfold(cfg, dataset_name, seed, data, property_name, 
         stratifier.get_folds(data)
         return stratifier
 
-    stratifier.property_values = props[property_name]
+    stratifier.property_values = props[stratifier.property_name]
     stratifier.num_nodes = data.num_nodes
     stratifier.target_fold_counts = np.array(
         [len(bucket) for bucket in np.array_split(np.arange(stratifier.num_nodes), stratifier.n_splits)],

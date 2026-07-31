@@ -113,7 +113,11 @@ class WDESKFold(BaseNodeStratifier):
         self.stratification_method = (
             f"SklearnCategorical_{self.PROPERTY_METHOD_NAMES[self.property_name]}"
         )
-        cluster_count = self.property_options.get("propagated_label_num_clusters")
+        cluster_count = None
+        for option_name in ("propagated_label_num_clusters", "neighborhood_count_num_clusters"):
+            if option_name in self.property_options:
+                cluster_count = self.property_options[option_name]
+                break
         if cluster_count is not None:
             self.stratification_method += f"_k{int(cluster_count)}"
         print(

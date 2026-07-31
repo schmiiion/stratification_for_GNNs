@@ -50,6 +50,51 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
     return accumulated.cpu().numpy()
 
 
+def compute_neighborhood_label_counts(data, num_hops=3, decay=0.5, log_scale=False):
+    """
+    Compute decayed raw k-hop label-count vectors for every node.
+
+    Unlike compute_propagated_label_distribution, this does not degree-normalize
+    intermediate messages and does not row-normalize the final vectors. The row
+    sum therefore keeps a density/reachability signal in addition to label
+    composition. Counts are walk-based under the PyG edge_index representation.
+    """
+    num_hops = int(num_hops)
+    decay = float(decay)
+    if num_hops < 1:
+        raise ValueError("neighborhood_count_num_hops must be at least 1.")
+    if decay <= 0:
+        raise ValueError("neighborhood_count_decay must be positive.")
+
+    labels = data.y.detach().to(torch.long)
+    _, labels = torch.unique(labels, sorted=True, return_inverse=True)
+    num_nodes = int(data.num_nodes)
+    num_classes = int(labels.max().item()) + 1
+
+    edge_index = data.edge_index.detach().to(labels.device)
+    source, target = edge_index[0], edge_index[1]
+
+    current = F.one_hot(labels, num_classes=num_classes).float()
+    accumulated = torch.zeros((num_nodes, num_classes), device=labels.device)
+
+    for hop in range(num_hops):
+        propagated = torch.zeros_like(current)
+        propagated.index_add_(0, target, current[source])
+
+        weight = decay ** hop
+        accumulated = accumulated + weight * propagated
+        current = propagated
+
+    has_signal = accumulated.sum(dim=1) > 0
+    if not bool(has_signal.all()):
+        raise ValueError("There seems to be a disconnected node")
+
+    if log_scale:
+        accumulated = torch.log1p(accumulated)
+
+    return accumulated.cpu().numpy()
+
+
 def _compact_cluster_ids(cluster_ids):
     _, compact_ids = np.unique(cluster_ids, return_inverse=True)
     return compact_ids.astype(np.int64)
@@ -464,6 +509,29 @@ def compute_propagated_label_cluster_ids(
     )
     return cluster_label_distributions(
         distributions=distributions,
+        num_clusters=num_clusters,
+        seed=seed,
+        min_cluster_size=min_cluster_size,
+    )
+
+
+def compute_neighborhood_count_cluster_ids(
+    data,
+    num_hops=3,
+    decay=0.5,
+    num_clusters=50,
+    seed=0,
+    min_cluster_size=5,
+    log_scale=False,
+):
+    counts = compute_neighborhood_label_counts(
+        data=data,
+        num_hops=num_hops,
+        decay=decay,
+        log_scale=log_scale,
+    )
+    return cluster_label_distributions(
+        distributions=counts,
         num_clusters=num_clusters,
         seed=seed,
         min_cluster_size=min_cluster_size,

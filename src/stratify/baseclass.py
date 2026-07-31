@@ -12,6 +12,7 @@ from torch_geometric.utils import degree, to_networkx
 from utils.dataset_reference_metrics import dataset_metric_summary
 from stratify.propagated_label_distribution import (
     compute_effective_min_cluster_size,
+    compute_neighborhood_count_cluster_ids,
     compute_propagated_label_cluster_ids,
 )
 
@@ -38,6 +39,7 @@ class BaseNodeStratifier(ABC):
         "Eigenvector Centrality",
         "Clustering Coefficient",
         "Propagated Label Cluster",
+        "Neighborhood Count",
     )
 
     PROPERTY_COLUMN_NAMES = {
@@ -47,6 +49,7 @@ class BaseNodeStratifier(ABC):
         "Eigenvector Centrality": "EigCentralityEmd",
         "Clustering Coefficient": "ClusteringEmd",
         "Propagated Label Cluster": "PropLabelClusterTvd",
+        "Neighborhood Count": "NeighCountTvd",
     }
 
     PROPERTY_METHOD_NAMES = {
@@ -56,10 +59,12 @@ class BaseNodeStratifier(ABC):
         "Eigenvector Centrality": "EigCentrality",
         "Clustering Coefficient": "Clustering",
         "Propagated Label Cluster": "PropLabelCluster",
+        "Neighborhood Count": "NeighCount",
     }
 
     CATEGORICAL_PROPERTY_NAMES = {
         "Propagated Label Cluster",
+        "Neighborhood Count",
     }
 
     PROPERTY_ALIASES = {
@@ -80,6 +85,12 @@ class BaseNodeStratifier(ABC):
         "labelpropagationcluster": "Propagated Label Cluster",
         "propagatedlabel": "Propagated Label Cluster",
         "proplabelcluster": "Propagated Label Cluster",
+        "neighborhoodcount": "Neighborhood Count",
+        "neighborhoodcounts": "Neighborhood Count",
+        "neighborhoodlabelcount": "Neighborhood Count",
+        "neighborhoodlabelcounts": "Neighborhood Count",
+        "neighcount": "Neighborhood Count",
+        "neighcounts": "Neighborhood Count",
     }
 
     def __init__(self, cfg, dataset_name, seed, n_splits=5, property_options=None):
@@ -115,6 +126,13 @@ class BaseNodeStratifier(ABC):
         if key in self.property_options:
             return self.property_options[key]
         return self.cfg.get(key, default)
+
+    def _requested_node_property_names(self):
+        property_names = set(self.get_fold_stat_property_names())
+        stratified_property = getattr(self, "property_name", None)
+        if stratified_property is not None:
+            property_names.add(self.canonical_property_name(stratified_property))
+        return property_names
 
     def _masks_from_fold_buckets(self, fold_buckets, num_nodes):
         """
@@ -182,57 +200,84 @@ class BaseNodeStratifier(ABC):
         Precompute node-level properties used for fold diagnostics.
         """
         num_nodes = data.num_nodes
+        requested_properties = self._requested_node_property_names()
+        props = {}
 
         #1. Degree
         row, col = data.edge_index
-        deg = degree(col, num_nodes).cpu().numpy()
+        needs_degree = bool({"Degree", "Neighborhood Heterogeneity"} & requested_properties)
+        if needs_degree:
+            deg = degree(col, num_nodes).cpu().numpy()
+            props["Degree"] = deg
 
         #Neighborhood heterogenity
-        y = data.y
-        same_class_match = (y[row] == y[col]).float()
-        same_class_neighbors = torch.zeros(num_nodes, device=data.edge_index.device)
-        same_class_neighbors.scatter_add_(0, col, same_class_match)
+        if "Neighborhood Heterogeneity" in requested_properties:
+            y = data.y
+            same_class_match = (y[row] == y[col]).float()
+            same_class_neighbors = torch.zeros(num_nodes, device=data.edge_index.device)
+            same_class_neighbors.scatter_add_(0, col, same_class_match)
 
-        deg_tensor = torch.tensor(deg, device=data.edge_index.device)
-        neighborhood_homophily = (same_class_neighbors / deg_tensor.clamp(min=1)).cpu().numpy()
+            deg_tensor = torch.tensor(props["Degree"], device=data.edge_index.device)
+            neighborhood_homophily = (same_class_neighbors / deg_tensor.clamp(min=1)).cpu().numpy()
+            props["Neighborhood Heterogeneity"] = neighborhood_homophily
 
-        #3. PageRank
-        graph = to_networkx(data, to_undirected=True)
-        pagerank = np.array(list(nx.pagerank(graph).values()))
-
-        #4 Eigenvector Centrality
-        try:
-            eigen = np.array(list(nx.eigenvector_centrality(graph, max_iter=1000).values()))
-        except nx.PowerIterationFailedConvergence:
-            print("Eigenvector centrality failed to converge. Defaulting to degree centrality.")
-            eigen = np.array(list(nx.degree_centrality(graph).values()))
-
-        #5. Clustering coefficient
-        clustering = np.array(list(nx.clustering(graph).values()))
-
-        propagated_label_cluster = compute_propagated_label_cluster_ids(
-            data=data,
-            num_hops=self.get_property_option("propagated_label_num_hops", 3),
-            decay=self.get_property_option("propagated_label_decay", 0.5),
-            num_clusters=self.get_property_option("propagated_label_num_clusters", 50),
-            seed=self.seed,
-            min_cluster_size=compute_effective_min_cluster_size(
-                num_nodes=data.num_nodes,
-                min_cluster_size=self.get_property_option("propagated_label_min_cluster_size", 25),
-                min_cluster_fraction=self.get_property_option("propagated_label_min_cluster_fraction", 0.005),
-                num_folds=self.n_splits,
-                min_nodes_per_fold=self.get_property_option("propagated_label_min_nodes_per_fold", 5),
-            ),
-        )
-
-        return {
-            "Degree": deg,
-            "Neighborhood Heterogeneity": neighborhood_homophily,
-            "PageRank": pagerank,
-            "Eigenvector Centrality": eigen,
-            "Clustering Coefficient": clustering,
-            "Propagated Label Cluster": propagated_label_cluster,
+        networkx_properties = {
+            "PageRank",
+            "Eigenvector Centrality",
+            "Clustering Coefficient",
         }
+        if networkx_properties & requested_properties:
+            graph = to_networkx(data, to_undirected=True)
+
+            if "PageRank" in requested_properties:
+                props["PageRank"] = np.array(list(nx.pagerank(graph).values()))
+
+            if "Eigenvector Centrality" in requested_properties:
+                try:
+                    props["Eigenvector Centrality"] = np.array(
+                        list(nx.eigenvector_centrality(graph, max_iter=1000).values())
+                    )
+                except nx.PowerIterationFailedConvergence:
+                    print("Eigenvector centrality failed to converge. Defaulting to degree centrality.")
+                    props["Eigenvector Centrality"] = np.array(list(nx.degree_centrality(graph).values()))
+
+            if "Clustering Coefficient" in requested_properties:
+                props["Clustering Coefficient"] = np.array(list(nx.clustering(graph).values()))
+
+        if "Propagated Label Cluster" in requested_properties:
+            props["Propagated Label Cluster"] = compute_propagated_label_cluster_ids(
+                data=data,
+                num_hops=self.get_property_option("propagated_label_num_hops", 3),
+                decay=self.get_property_option("propagated_label_decay", 0.5),
+                num_clusters=self.get_property_option("propagated_label_num_clusters", 50),
+                seed=self.seed,
+                min_cluster_size=compute_effective_min_cluster_size(
+                    num_nodes=data.num_nodes,
+                    min_cluster_size=self.get_property_option("propagated_label_min_cluster_size", 25),
+                    min_cluster_fraction=self.get_property_option("propagated_label_min_cluster_fraction", 0.005),
+                    num_folds=self.n_splits,
+                    min_nodes_per_fold=self.get_property_option("propagated_label_min_nodes_per_fold", 5),
+                ),
+            )
+
+        if "Neighborhood Count" in requested_properties:
+            props["Neighborhood Count"] = compute_neighborhood_count_cluster_ids(
+                data=data,
+                num_hops=self.get_property_option("neighborhood_count_num_hops", 3),
+                decay=self.get_property_option("neighborhood_count_decay", 0.5),
+                num_clusters=self.get_property_option("neighborhood_count_num_clusters", 50),
+                seed=self.seed,
+                min_cluster_size=compute_effective_min_cluster_size(
+                    num_nodes=data.num_nodes,
+                    min_cluster_size=self.get_property_option("neighborhood_count_min_cluster_size", 25),
+                    min_cluster_fraction=self.get_property_option("neighborhood_count_min_cluster_fraction", 0.005),
+                    num_folds=self.n_splits,
+                    min_nodes_per_fold=self.get_property_option("neighborhood_count_min_nodes_per_fold", 5),
+                ),
+                log_scale=self.get_property_option("neighborhood_count_log_scale", False),
+            )
+
+        return props
 
     def get_fold_stat_property_names(self):
         configured_properties = self.cfg.get("fold_stat_properties", list(self.PROPERTY_NAMES))

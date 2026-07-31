@@ -32,12 +32,14 @@ METHOD_ORDER = [
     "Label",
     "Neighborhood Heterogeneity",
     "Neighborhood Distribution",
+    "Neighborhood Count",
 ]
 METHOD_LABELS = {
     "Random": "Random",
     "Label": "Label",
-    "Neighborhood Heterogeneity": "Neigh.\nHet.",
+    "Neighborhood Heterogeneity": "Neigh.\nHom.",
     "Neighborhood Distribution": "Neigh.\nDistribution",
+    "Neighborhood Count": "Neigh.\nCount",
 }
 
 
@@ -82,6 +84,8 @@ def method_from_stratifier(stratifier):
         return "Neighborhood Heterogeneity"
     if "PropLabelCluster" in stratifier:
         return "Neighborhood Distribution"
+    if "NeighCount" in stratifier or "NeighborhoodCount" in stratifier:
+        return "Neighborhood Count"
     return None
 
 
@@ -251,9 +255,15 @@ def dataset_sort_key(dataset_name):
     return (1, str(dataset_name).lower(), str(dataset_name))
 
 
+def displayed_methods(dataset_stats):
+    available_methods = set(dataset_stats["Method"])
+    return [method for method in METHOD_ORDER if method in available_methods]
+
+
 def plot_dataset_table(dataset_name, stats):
     dataset_stats = stats[stats["DatasetDisplay"] == dataset_name]
     models = [model for model in MODEL_ORDER if model in set(dataset_stats["Model"])]
+    methods = displayed_methods(dataset_stats)
     if not models:
         return
 
@@ -264,7 +274,7 @@ def plot_dataset_table(dataset_name, stats):
         best_std = model_stats["MeanFoldStd"].min()
         row = [model]
 
-        for col_idx, method in enumerate(METHOD_ORDER, start=1):
+        for col_idx, method in enumerate(methods, start=1):
             values = model_stats[model_stats["Method"] == method]
             if values.empty:
                 row.append("n/a")
@@ -278,10 +288,15 @@ def plot_dataset_table(dataset_name, stats):
 
         table_rows.append(row)
 
-    max_n = int(dataset_stats["NumEstimates"].max())
+    n_values = sorted(dataset_stats["NumEstimates"].dropna().astype(int).unique())
+    if len(n_values) == 1:
+        n_text = f"n={n_values[0]}"
+    else:
+        n_text = f"n={n_values[0]}-{n_values[-1]}"
+
     title_line = (
         f"{dataset_name}: Aggregated Accuracy Dispersion | "
-        f"{dataset_homophily_text(dataset_name)} | n<= {max_n}"
+        f"{dataset_homophily_text(dataset_name)} | {n_text}"
     )
     metadata_line = f"{dataset_graph_size_text(dataset_name)} | {dataset_li_text(dataset_name)}"
 
@@ -289,24 +304,14 @@ def plot_dataset_table(dataset_name, stats):
     ax.axis("off")
     fig.text(0.5, 0.965, title_line, ha="center", va="top", fontsize=16, fontweight="bold")
     fig.text(0.5, 0.915, metadata_line, ha="center", va="top", fontsize=12.5, fontweight="bold")
-    fig.text(
-        0.5,
-        0.855,
-        "Each cell reports the mean fold-wise standard deviation of test accuracy. "
-        "n counts unique Fold_Seed/Init_Seed pairs; raw variants within a displayed method "
-        "are averaged before n is counted.",
-        ha="center",
-        va="center",
-        fontsize=10.5,
-    )
 
     table = ax.table(
         cellText=table_rows,
-        colLabels=["Model", *[METHOD_LABELS[method] for method in METHOD_ORDER]],
+        colLabels=["Model", *[METHOD_LABELS[method] for method in methods]],
         cellLoc="center",
         colLoc="center",
         loc="center",
-        bbox=[0.04, 0.06, 0.92, 0.70],
+        bbox=[0.04, 0.08, 0.92, 0.74],
     )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
