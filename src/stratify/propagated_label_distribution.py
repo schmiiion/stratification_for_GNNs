@@ -58,6 +58,7 @@ def compute_neighborhood_label_counts(data, num_hops=3, decay=0.5, log_scale=Fal
     intermediate messages and does not row-normalize the final vectors. The row
     sum therefore keeps a density/reachability signal in addition to label
     composition. Counts are walk-based under the PyG edge_index representation.
+    Nodes without reachable neighbors keep an all-zero count vector.
     """
     num_hops = int(num_hops)
     decay = float(decay)
@@ -84,10 +85,6 @@ def compute_neighborhood_label_counts(data, num_hops=3, decay=0.5, log_scale=Fal
         weight = decay ** hop
         accumulated = accumulated + weight * propagated
         current = propagated
-
-    has_signal = accumulated.sum(dim=1) > 0
-    if not bool(has_signal.all()):
-        raise ValueError("There seems to be a disconnected node")
 
     if log_scale:
         accumulated = torch.log1p(accumulated)
