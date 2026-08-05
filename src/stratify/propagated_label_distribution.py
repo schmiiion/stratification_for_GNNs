@@ -9,7 +9,8 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
 
     The returned matrix has shape [num_nodes, num_classes]. Row v contains the
     label mass that reaches node v through 1..num_hops propagation steps. The
-    node's own label at hop 0 is intentionally excluded.
+    node's own label at hop 0 is intentionally excluded. Nodes without reachable
+    neighbors receive the global label prior as neutral fallback.
     """
     num_hops = int(num_hops)
     decay = float(decay)
@@ -45,7 +46,8 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
     accumulated[has_signal] = accumulated[has_signal] / row_sums[has_signal]
 
     if not bool(has_signal.all()): #
-        raise ValueError("There seems to be a disconnected node")
+        global_prior = F.one_hot(labels, num_classes=num_classes).float().mean(dim=0)
+        accumulated[~has_signal] = global_prior
 
     return accumulated.cpu().numpy()
 
