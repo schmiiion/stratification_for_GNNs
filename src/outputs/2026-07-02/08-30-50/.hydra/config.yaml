@@ -1,0 +1,94 @@
+init_seeds:
+- 100
+- 101
+hidden_layers: 2
+hidden_units: 64
+optimizer: Adam
+lr: 0.01
+weight_decay: 0.0005
+max_epochs: 1000
+num_folds: 5
+early_stopping_patience: 100
+num_workers: 4
+stratification_types:
+- random
+- label
+- property
+properties:
+- Neighborhood Heterogeneity
+- Propagated Label Cluster
+sampling_method: sklearn
+skf_num_bins:
+- 50
+- 100
+- 150
+- 200
+- 250
+- 300
+- 350
+- 400
+- 450
+- 500
+wdes_n_gen: 50
+wdes_n_pop: 100
+wdes_cxpb: 0.5
+wdes_mutpb: 0.2
+wdes_tournament_size: 3
+propagated_label_num_hops: 3
+propagated_label_decay: 0.5
+propagated_label_cluster_selection: gap_topk
+propagated_label_cluster_candidates:
+- 5
+- 10
+- 20
+- 30
+- 40
+- 50
+- 75
+- 100
+propagated_label_gap_top_k: 3
+propagated_label_gap_reference_runs: 5
+propagated_label_num_clusters: 50
+fold_stat_properties:
+- Degree
+- Neighborhood Heterogeneity
+- PageRank
+- Eigenvector Centrality
+- Clustering Coefficient
+- Propagated Label Cluster
+log_fold_statistics: true
+syn_cora_ratios:
+- 0.0
+- 0.1
+- 0.2
+- 0.3
+- 0.4
+- 0.5
+- 0.6
+- 0.7
+- 0.8
+- 0.9
+- 1.0
+syn_cora_realizations:
+- 1
+fold_seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+model_names:
+- MLP
+- GCN
+- GAT
+- SAGE
+- MixHop
+- GPRGNN
+- H2GCN
+datasets:
+- actor
+- Texas
+- roman_empire
+plot_fold_statistics: false
+run_csv_filename: logs/runs/StratifiedSamplingBaseline.csv
+fold_stats_csv_filename: logs/runs/FoldStatistics.csv

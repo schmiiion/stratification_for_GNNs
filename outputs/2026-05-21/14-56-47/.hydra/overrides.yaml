@@ -1,0 +1,9 @@
+- max_epochs=2
+- early_stopping_patience=1
+- init_seeds=[100]
+- fold_seeds=[0]
+- model_names=[MLP]
+- datasets=[Texas]
+- stratification_types=[label]
+- num_workers=1
+- plot_fold_statistics=false

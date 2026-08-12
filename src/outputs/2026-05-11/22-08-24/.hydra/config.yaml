@@ -1,0 +1,31 @@
+seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+hidden_layers: 2
+hidden_units: 64
+optimizer: Adam
+lr: 0.01
+weight_decay: 0.0005
+max_epochs: 1000
+patience: 100
+train_ratios:
+- - 0.6
+  - 0.2
+  - 0.2
+- - 0.5
+  - 0.3
+  - 0.2
+model_names:
+- MLP
+- GCN
+- GAT
+- SAGE
+- MixHop

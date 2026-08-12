@@ -1,0 +1,100 @@
+#init_seeds: [100,101,102,103,104,105,106,107,108,109]
+init_seeds: [101]
+#  ,110,111,112,113,114,115,116,117,118,119]
+
+#fixed by our problem definition
+hidden_layers: 2
+hidden_units: 64
+optimizer: "Adam"
+lr: 0.01
+weight_decay: 5e-4
+max_epochs: 1000
+num_folds: 5
+
+early_stopping_patience: 100
+num_workers: 4
+
+stratification_types:  ["property"] #["random", "label", "property"]
+#properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster", "Neighborhood Count"]
+properties: ["Neighborhood Count"]
+sampling_method: "sklearn" # "ga" or "sklearn"
+skf_num_bins: [50, 100, 150, 200, 250, 300, 350, 400, 450, 500] # scalar sklearn candidates; best EMD is used
+
+#ga - hyperparams
+wdes_n_gen: 50
+wdes_n_pop: 100
+wdes_cxpb: 0.5
+wdes_mutpb: 0.2
+wdes_tournament_size: 3
+
+#neighborhood label distribution -hyperparams
+propagated_label_num_hops: 3
+propagated_label_decay: 0.5
+propagated_label_cluster_selection: "gap_statistic" # "fixed" or "gap_statistic"
+propagated_label_gap_min_k: 2
+propagated_label_gap_max_k: 50
+propagated_label_min_cluster_size: 25
+propagated_label_min_cluster_fraction: 0.005
+propagated_label_min_nodes_per_fold: 5
+propagated_label_gap_reference_runs: 5
+propagated_label_gap_progress: true
+propagated_label_gap_plot_extra_k: 5
+propagated_label_num_clusters: 50 # used when propagated_label_cluster_selection is "fixed"
+propagated_label_tsne_max_nodes: 5000
+plot_propagated_label_clusters: true
+plot_gap_statistic_curve: true
+
+#neighborhood label count - hyperparams
+neighborhood_count_num_hops: 3
+neighborhood_count_decay: 0.5
+neighborhood_count_log_scale: false
+neighborhood_count_cluster_selection: "gap_statistic" # "fixed" or "gap_statistic"
+neighborhood_count_gap_min_k: 2
+neighborhood_count_gap_max_k: 50
+neighborhood_count_min_cluster_size: 25
+neighborhood_count_min_cluster_fraction: 0.005
+neighborhood_count_min_nodes_per_fold: 5
+neighborhood_count_gap_reference_runs: 5
+neighborhood_count_gap_progress: true
+neighborhood_count_num_clusters: 50 # used when neighborhood_count_cluster_selection is "fixed"
+neighborhood_count_tsne_max_nodes: 5000
+
+#logging of stratification properties
+fold_stat_properties: ["Degree", "Neighborhood Heterogeneity", "PageRank", "Eigenvector Centrality", "Clustering Coefficient", "Propagated Label Cluster", "Neighborhood Count"]
+log_fold_statistics: true
+
+# Used when "syn-cora" is present in datasets.
+syn_cora_ratios: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+syn_cora_realizations: [1]
+
+#fold_seeds: [0,1,2,3,4,5,6,7,8,9]
+fold_seeds: [0]
+
+model_names: ["MLP", "GCN", "GAT", "SAGE","MixHop", "GPRGNN", "H2GCN"]
+#model_names: ["H2GCN"]
+
+datasets: [
+    "Cora",
+    "CiteSeer",
+    "PubMed",
+    "Computers",
+    "Photo",
+    "chameleon",
+   "squirrel",
+    "crocodile",
+   "wisconsin",
+   "Texas",
+    "actor",
+    "roman_empire",
+    "cornell",
+    "amazon_ratings",
+    "coauthor_cs",
+    "coauthor_physics",
+    "WikiCS",
+     "syn-cora",
+]
+
+plot_fold_statistics: false
+run_csv_filename: "logs/runs/StratifiedSamplingBaseline.csv"
+fold_stats_csv_filename: "logs/runs/FoldStatistics.csv"
+run_output_dir: null # set by CsvLogger after timestamped run paths are created

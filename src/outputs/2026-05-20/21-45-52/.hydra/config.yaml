@@ -1,0 +1,37 @@
+init_seeds:
+- 100
+- 101
+- 102
+- 103
+- 104
+- 105
+- 106
+- 107
+- 108
+- 109
+hidden_layers: 2
+hidden_units: 64
+optimizer: Adam
+lr: 0.01
+weight_decay: 0.0005
+max_epochs: 1000
+test_all_n: 100
+num_folds: 5
+fold_seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+model_names:
+- H2GCN
+datasets:
+- Cora
+plot_fold_statistics: false
+run_csv_filename: logs/StratifiedSamplingBaseline.csv
+fold_stats_csv_filename: logs/FoldStatistics.csv

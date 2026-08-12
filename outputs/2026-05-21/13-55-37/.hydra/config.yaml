@@ -1,0 +1,29 @@
+init_seeds:
+- 100
+hidden_layers: 2
+hidden_units: 64
+optimizer: Adam
+lr: 0.01
+weight_decay: 0.0005
+max_epochs: 3
+test_all_n: 100
+num_folds: 5
+stratification_types:
+- label
+- random
+validation_interval: 1
+early_stopping_patience: 2
+early_stopping_window: 1
+early_stopping_min_epochs: 0
+early_stopping_min_delta: 0.0
+best_val_criteria: val_acc
+num_workers: 1
+fold_seeds:
+- 0
+model_names:
+- MLP
+datasets:
+- Texas
+plot_fold_statistics: false
+run_csv_filename: logs/StratifiedSamplingBaseline.csv
+fold_stats_csv_filename: logs/FoldStatistics.csv

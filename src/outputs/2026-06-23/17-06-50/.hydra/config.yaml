@@ -1,0 +1,69 @@
+init_seeds:
+- 100
+- 101
+hidden_layers: 2
+hidden_units: 64
+optimizer: Adam
+lr: 0.01
+weight_decay: 0.0005
+max_epochs: 1000
+num_folds: 5
+early_stopping_patience: 100
+num_workers: 4
+stratification_types:
+- random
+- label
+- property
+wdes_properties:
+- Degree
+- Neighborhood Heterogeneity
+- PageRank
+- Eigenvector Centrality
+- Clustering Coefficient
+wdes_sampling_method: stratified_kfold_dynamic
+wdes_stratified_num_bins: 20
+skf_num_bins:
+- 100
+- 150
+- 200
+- 250
+- 300
+wdes_n_gen: 50
+wdes_n_pop: 100
+wdes_cxpb: 0.5
+wdes_mutpb: 0.2
+wdes_tournament_size: 3
+fold_stat_properties:
+- Degree
+- Neighborhood Heterogeneity
+- PageRank
+- Eigenvector Centrality
+- Clustering Coefficient
+log_fold_statistics: true
+syn_cora_ratios:
+- 0.0
+- 0.1
+- 0.2
+- 0.3
+- 0.4
+- 0.5
+- 0.6
+- 0.7
+- 0.8
+- 0.9
+- 1.0
+syn_cora_realizations:
+- 1
+fold_seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+model_names:
+- GCN
+datasets:
+- syn-cora
+plot_fold_statistics: false
+run_csv_filename: logs/runs/StratifiedSamplingBaseline.csv
+fold_stats_csv_filename: logs/runs/FoldStatistics.csv
