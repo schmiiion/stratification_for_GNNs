@@ -1,12 +1,45 @@
+import numpy as np
+
 from stratify.label_based_stratifier import LabelStratifiedKFold
+from stratify.propagated_label_distribution import (
+    compute_effective_min_cluster_size,
+    compute_neighborhood_label_counts,
+    compute_propagated_label_distribution,
+    select_gap_statistic_cluster_counts,
+)
 from stratify.random_stratifier import RandomKFold
+from stratify.wdes_stratifier import WDESKFold
 from utils.experiment_utils import as_list
 
 
 STRATIFIER_REGISTRY = {
     "label": LabelStratifiedKFold,
+    "property": WDESKFold,
+    "property_stratified": WDESKFold,
     "random": RandomKFold,
+    "wdes": WDESKFold,
 }
+
+PROPERTY_BASED_STRATIFIER_KEYS = {"property", "property_stratified", "wdes"}
+_PRINTED_CLUSTERED_PROPERTY_K_CAPS = set()
+CLUSTERED_PROPERTIES = {
+    "Propagated Label Cluster": {
+        "label": "propagated-label",
+        "prefix": "propagated_label",
+        "compute_vectors": compute_propagated_label_distribution,
+    },
+    "Neighborhood Count": {
+        "label": "neighborhood-count",
+        "prefix": "neighborhood_count",
+        "compute_vectors": compute_neighborhood_label_counts,
+    },
+}
+
+
+def cfg_get(cfg, key, default):
+    if hasattr(cfg, "get"):
+        return cfg.get(key, default)
+    return getattr(cfg, key, default)
 
 
 def get_stratifier_class(stratification_type):
@@ -17,15 +50,158 @@ def get_stratifier_class(stratification_type):
     return STRATIFIER_REGISTRY[key]
 
 
-def get_stratifiers(cfg, dataset_name, seed):
-    stratification_types = as_list(cfg.get("stratification_types", ["label"]))
+def get_properties(cfg):
+    configured_properties = cfg_get(cfg, "properties", ["Degree"])
+    return as_list(configured_properties)
+
+
+def _format_cluster_size_summary(num_nodes, max_k):
+    cluster_sizes = np.array([len(bucket) for bucket in np.array_split(np.arange(num_nodes), max_k)])
+    sizes, counts = np.unique(cluster_sizes, return_counts=True)
+    return ", ".join(
+        f"{int(size)} nodes x {int(count)} clusters"
+        for size, count in zip(sizes, counts)
+    )
+
+
+def _print_clustered_property_k_cap(cfg, data, dataset_name, canonical_property_name):
+    if data is None:
+        return
+
+    spec = CLUSTERED_PROPERTIES[canonical_property_name]
+    prefix = spec["prefix"]
+    num_nodes = int(data.num_nodes)
+    effective_min_cluster_size = compute_effective_min_cluster_size(
+        num_nodes=num_nodes,
+        min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+        min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
+        num_folds=cfg_get(cfg, "num_folds", 5),
+        min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
+    )
+    dataset_max_k = max(1, num_nodes // effective_min_cluster_size)
+    configured_max_k = cfg_get(cfg, f"{prefix}_gap_max_k", 50)
+    max_k = min(dataset_max_k, max(1, int(configured_max_k)))
+    print_key = (
+        str(dataset_name),
+        canonical_property_name,
+        num_nodes,
+        effective_min_cluster_size,
+        dataset_max_k,
+        max_k,
+    )
+    if print_key in _PRINTED_CLUSTERED_PROPERTY_K_CAPS:
+        return
+
+    _PRINTED_CLUSTERED_PROPERTY_K_CAPS.add(print_key)
+    print(
+        f"{spec['label'].capitalize()} KMeans cap "
+        f"for {dataset_name}: nodes={num_nodes}, "
+        f"effective_min_cluster_size={effective_min_cluster_size}, "
+        f"dataset_max_k={dataset_max_k}, used_max_k={max_k}, "
+        f"nodes_per_cluster_at_max_k=({_format_cluster_size_summary(num_nodes, max_k)})"
+    )
+
+
+def property_cache_key(dataset_name, seed, canonical_property_name):
+    return (str(dataset_name), int(seed), str(canonical_property_name))
+
+
+def get_property_variants(
+    cfg,
+    property_name,
+    seed,
+    data=None,
+    dataset_name=None,
+    property_variant_cache=None,
+):
+    canonical_name = WDESKFold.canonical_property_name(property_name)
+    if canonical_name not in CLUSTERED_PROPERTIES:
+        return [(canonical_name, {})]
+
+    spec = CLUSTERED_PROPERTIES[canonical_name]
+    prefix = spec["prefix"]
+    _print_clustered_property_k_cap(cfg, data, dataset_name, canonical_name)
+    selection_method = str(
+        cfg_get(cfg, f"{prefix}_cluster_selection", "fixed")
+    ).replace("-", "_").lower()
+    if selection_method in {"gap", "gap_topk", "gap_statistic"} and data is not None:
+        cache_key = property_cache_key(dataset_name, seed, canonical_name)
+        if property_variant_cache is not None and cache_key in property_variant_cache:
+            cluster_counts = [int(property_variant_cache[cache_key])]
+            print(
+                f"Reusing gap-statistic {spec['label']} cluster count "
+                f"for {dataset_name} seed={seed}: {cluster_counts[0]}"
+            )
+        else:
+            vector_kwargs = {
+                "data": data,
+                "num_hops": cfg_get(cfg, f"{prefix}_num_hops", 3),
+                "decay": cfg_get(cfg, f"{prefix}_decay", 0.5),
+            }
+            if canonical_name == "Neighborhood Count":
+                vector_kwargs["log_scale"] = cfg_get(cfg, "neighborhood_count_log_scale", False)
+            distributions = spec["compute_vectors"](**vector_kwargs)
+            cluster_counts = select_gap_statistic_cluster_counts(
+                distributions=distributions,
+                seed=seed,
+                reference_runs=cfg_get(cfg, f"{prefix}_gap_reference_runs", 5),
+                min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+                min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
+                num_folds=cfg_get(cfg, "num_folds", 5),
+                min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
+                min_k=cfg_get(cfg, f"{prefix}_gap_min_k", 2),
+                max_k=cfg_get(cfg, f"{prefix}_gap_max_k", 50),
+                show_progress=cfg_get(cfg, f"{prefix}_gap_progress", True),
+                progress_label=f"Gap statistic {spec['label']} {dataset_name} seed={seed}",
+            )
+            print(f"Gap statistic selected {spec['label']} cluster count: {cluster_counts[0]}")
+            if property_variant_cache is not None:
+                property_variant_cache[cache_key] = int(cluster_counts[0])
+    else:
+        cluster_counts = as_list(cfg_get(cfg, f"{prefix}_num_clusters", [50]))
 
     return [
-        get_stratifier_class(stratification_type)(
-            cfg=cfg,
-            dataset_name=dataset_name,
-            n_splits=cfg.num_folds,
-            seed=seed,
-        )
-        for stratification_type in stratification_types
+        (canonical_name, {f"{prefix}_num_clusters": int(cluster_count)})
+        for cluster_count in cluster_counts
     ]
+
+
+def get_stratifiers(cfg, dataset_name, seed, data=None, property_variant_cache=None):
+    stratification_types = as_list(cfg_get(cfg, "stratification_types", ["label"]))
+    stratifiers = []
+
+    for stratification_type in stratification_types:
+        key = stratification_type.replace("-", "_").lower()
+        stratifier_class = get_stratifier_class(stratification_type)
+
+        if key in PROPERTY_BASED_STRATIFIER_KEYS:
+            for property_name in get_properties(cfg):
+                for canonical_property_name, property_options in get_property_variants(
+                    cfg=cfg,
+                    property_name=property_name,
+                    seed=seed,
+                    data=data,
+                    dataset_name=dataset_name,
+                    property_variant_cache=property_variant_cache,
+                ):
+                    stratifiers.append(
+                        stratifier_class(
+                            cfg=cfg,
+                            dataset_name=dataset_name,
+                            n_splits=cfg.num_folds,
+                            seed=seed,
+                            property_name=canonical_property_name,
+                            property_options=property_options,
+                        )
+                    )
+        else:
+            stratifiers.append(
+                stratifier_class(
+                    cfg=cfg,
+                    dataset_name=dataset_name,
+                    n_splits=cfg.num_folds,
+                    seed=seed,
+                )
+            )
+
+    return stratifiers

@@ -1,8 +1,14 @@
 import csv
 from datetime import datetime
 import os
+from pathlib import Path
+
+from omegaconf import DictConfig, OmegaConf
 
 from utils.experiment_utils import build_log_path
+
+
+SRC_ROOT = Path(__file__).resolve().parents[1]
 
 
 class CsvLogger:
@@ -25,13 +31,15 @@ class CsvLogger:
 
     FOLD_STATS_HEADER = [
         "Dataset",
-        "StratificationType",
-        "Fold_Seed",
-        "Fold",
-        "SplitComparison",
-        "Property",
-        "EMD",
-        "KS_Stat",
+        "StratificationMethod",
+        "StratSeed",
+        "DegreeEmd",
+        "NeighHetEmd",
+        "PageRankEmd",
+        "EigCentralityEmd",
+        "ClusteringEmd",
+        "PropLabelClusterTvd",
+        "NeighCountTvd",
     ]
 
     def __init__(self, cfg):
@@ -46,17 +54,34 @@ class CsvLogger:
             self.cfg.datasets,
             "RunMetrics",
         )
+        self.cfg.run_csv_filename = self._resolve_log_path(self.cfg.run_csv_filename)
+
         self.cfg.fold_stats_csv_filename = build_log_path(
             self.cfg.fold_stats_csv_filename,
             timestamp,
             self.cfg.datasets,
             "FoldStatistics",
         )
+        self.cfg.fold_stats_csv_filename = self._resolve_log_path(self.cfg.fold_stats_csv_filename)
+        self._set_cfg_value("run_output_dir", os.path.dirname(self.cfg.run_csv_filename))
 
         self._write_header(self.cfg.run_csv_filename, self.RUN_METRICS_HEADER)
         self._write_header(self.cfg.fold_stats_csv_filename, self.FOLD_STATS_HEADER)
 
         return self.cfg
+
+    @staticmethod
+    def _resolve_log_path(filepath):
+        path = Path(filepath).expanduser()
+        if not path.is_absolute():
+            path = SRC_ROOT / path
+        return str(path)
+
+    def _set_cfg_value(self, key, value):
+        if isinstance(self.cfg, DictConfig):
+            OmegaConf.update(self.cfg, key, value, force_add=True)
+        else:
+            setattr(self.cfg, key, value)
 
     @staticmethod
     def _write_header(filepath, header):

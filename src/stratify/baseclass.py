@@ -4,10 +4,17 @@ import csv
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-from scipy.stats import ks_2samp, wasserstein_distance
+from scipy.stats import wasserstein_distance
 import seaborn as sns
 import torch
 from torch_geometric.utils import degree, to_networkx
+
+from utils.dataset_reference_metrics import dataset_metric_summary
+from stratify.propagated_label_distribution import (
+    compute_effective_min_cluster_size,
+    compute_neighborhood_count_cluster_ids,
+    compute_propagated_label_cluster_ids,
+)
 
 
 class BaseNodeStratifier(ABC):
@@ -25,18 +32,107 @@ class BaseNodeStratifier(ABC):
         "Test": "tab:orange",
     }
 
-    def __init__(self, cfg, dataset_name, n_splits=5, seed=42):
-        if n_splits < 3:
-            raise ValueError("n_splits must be at least 3 to create train/val/test folds.")
+    PROPERTY_NAMES = (
+        "Degree",
+        "Neighborhood Heterogeneity",
+        "PageRank",
+        "Eigenvector Centrality",
+        "Clustering Coefficient",
+        "Propagated Label Cluster",
+        "Neighborhood Count",
+    )
+
+    PROPERTY_COLUMN_NAMES = {
+        "Degree": "DegreeEmd",
+        "Neighborhood Heterogeneity": "NeighHetEmd",
+        "PageRank": "PageRankEmd",
+        "Eigenvector Centrality": "EigCentralityEmd",
+        "Clustering Coefficient": "ClusteringEmd",
+        "Propagated Label Cluster": "PropLabelClusterTvd",
+        "Neighborhood Count": "NeighCountTvd",
+    }
+
+    PROPERTY_METHOD_NAMES = {
+        "Degree": "Degree",
+        "Neighborhood Heterogeneity": "NeighHet",
+        "PageRank": "PageRank",
+        "Eigenvector Centrality": "EigCentrality",
+        "Clustering Coefficient": "Clustering",
+        "Propagated Label Cluster": "PropLabelCluster",
+        "Neighborhood Count": "NeighCount",
+    }
+
+    CATEGORICAL_PROPERTY_NAMES = {
+        "Propagated Label Cluster",
+        "Neighborhood Count",
+    }
+
+    PROPERTY_ALIASES = {
+        "degree": "Degree",
+        "neighborhoodheterogeneity": "Neighborhood Heterogeneity",
+        "neighborhoodhomophily": "Neighborhood Heterogeneity",
+        "neighhet": "Neighborhood Heterogeneity",
+        "pagerank": "PageRank",
+        "eigenvectorcentrality": "Eigenvector Centrality",
+        "eigencentrality": "Eigenvector Centrality",
+        "eigenveccent": "Eigenvector Centrality",
+        "clusteringcoefficient": "Clustering Coefficient",
+        "clustercoeff": "Clustering Coefficient",
+        "clustering": "Clustering Coefficient",
+        "propagatedlabelcluster": "Propagated Label Cluster",
+        "propagatedlabelclusters": "Propagated Label Cluster",
+        "propagatedlabeldistribution": "Propagated Label Cluster",
+        "labelpropagationcluster": "Propagated Label Cluster",
+        "propagatedlabel": "Propagated Label Cluster",
+        "proplabelcluster": "Propagated Label Cluster",
+        "neighborhoodcount": "Neighborhood Count",
+        "neighborhoodcounts": "Neighborhood Count",
+        "neighborhoodlabelcount": "Neighborhood Count",
+        "neighborhoodlabelcounts": "Neighborhood Count",
+        "neighcount": "Neighborhood Count",
+        "neighcounts": "Neighborhood Count",
+    }
+
+    def __init__(self, cfg, dataset_name, seed, n_splits=5, property_options=None):
+        if n_splits != 5:
+            raise ValueError("n_splits is fixed to 5 in our setting")
 
         self.cfg = cfg
         self.dataset_name = dataset_name
         self.n_splits = n_splits
         self.seed = seed
+        self.stratification_method = self.__class__.__name__
+        self.property_options = property_options or {}
 
     @abstractmethod
     def get_folds(self, data):
         """Return a list of dicts with train_mask, val_mask, and test_mask."""
+
+    @classmethod
+    def canonical_property_name(cls, property_name):
+        key = str(property_name).replace(" ", "").replace("_", "").replace("-", "").lower()
+        if key in cls.PROPERTY_ALIASES:
+            return cls.PROPERTY_ALIASES[key]
+        if property_name in cls.PROPERTY_NAMES:
+            return property_name
+        available = ", ".join(cls.PROPERTY_NAMES)
+        raise ValueError(f"Unknown node property '{property_name}'. Available: {available}")
+
+    @classmethod
+    def is_categorical_property(cls, property_name):
+        return cls.canonical_property_name(property_name) in cls.CATEGORICAL_PROPERTY_NAMES
+
+    def get_property_option(self, key, default):
+        if key in self.property_options:
+            return self.property_options[key]
+        return self.cfg.get(key, default)
+
+    def _requested_node_property_names(self):
+        property_names = set(self.get_fold_stat_property_names())
+        stratified_property = getattr(self, "property_name", None)
+        if stratified_property is not None:
+            property_names.add(self.canonical_property_name(stratified_property))
+        return property_names
 
     def _masks_from_fold_buckets(self, fold_buckets, num_nodes):
         """
@@ -78,6 +174,7 @@ class BaseNodeStratifier(ABC):
         return mask
 
     def _validate_fold_buckets(self, fold_buckets, num_nodes):
+        """Ensure buckets are well-formed and cover every node exactly once."""
         if len(fold_buckets) != self.n_splits:
             raise ValueError(f"Expected {self.n_splits} fold buckets, got {len(fold_buckets)}.")
 
@@ -93,55 +190,145 @@ class BaseNodeStratifier(ABC):
             raise ValueError("Fold buckets contain node indices outside the graph.")
 
     def _compute_node_properties(self, data):
-        """
-        Precompute node-level properties used for fold diagnostics.
-        """
+        """Precompute node-level properties used for fold diagnostics."""
         num_nodes = data.num_nodes
+        requested_properties = self._requested_node_property_names()
+        props = {}
 
         row, col = data.edge_index
-        deg = degree(col, num_nodes).cpu().numpy()
+        needs_degree = bool({"Degree", "Neighborhood Heterogeneity"} & requested_properties)
+        if needs_degree:
+            deg = degree(col, num_nodes).cpu().numpy()
+            props["Degree"] = deg
 
-        y = data.y
-        same_class_match = (y[row] == y[col]).float()
-        same_class_neighbors = torch.zeros(num_nodes, device=data.edge_index.device)
-        same_class_neighbors.scatter_add_(0, col, same_class_match)
+        if "Neighborhood Heterogeneity" in requested_properties:
+            y = data.y
+            same_class_match = (y[row] == y[col]).float()
+            same_class_neighbors = torch.zeros(num_nodes, device=data.edge_index.device)
+            same_class_neighbors.scatter_add_(0, col, same_class_match)
 
-        deg_tensor = torch.tensor(deg, device=data.edge_index.device)
-        neighborhood_homophily = (same_class_neighbors / deg_tensor.clamp(min=1)).cpu().numpy()
+            deg_tensor = torch.tensor(props["Degree"], device=data.edge_index.device)
+            neighborhood_homophily = (same_class_neighbors / deg_tensor.clamp(min=1)).cpu().numpy()
+            props["Neighborhood Heterogeneity"] = neighborhood_homophily
 
-        graph = to_networkx(data, to_undirected=True)
-        pagerank = np.array(list(nx.pagerank(graph).values()))
-
-        try:
-            eigen = np.array(list(nx.eigenvector_centrality(graph, max_iter=1000).values()))
-        except nx.PowerIterationFailedConvergence:
-            print("Eigenvector centrality failed to converge. Defaulting to degree centrality.")
-            eigen = np.array(list(nx.degree_centrality(graph).values()))
-
-        clustering = np.array(list(nx.clustering(graph).values()))
-
-        return {
-            "Degree": deg,
-            "Neighborhood Heterogeneity": neighborhood_homophily,
-            "PageRank": pagerank,
-            "Eigenvector Centrality": eigen,
-            "Clustering Coefficient": clustering,
+        networkx_properties = {
+            "PageRank",
+            "Eigenvector Centrality",
+            "Clustering Coefficient",
         }
+        if networkx_properties & requested_properties:
+            graph = to_networkx(data, to_undirected=True)
+
+            if "PageRank" in requested_properties:
+                props["PageRank"] = np.array(list(nx.pagerank(graph).values()))
+
+            if "Eigenvector Centrality" in requested_properties:
+                try:
+                    props["Eigenvector Centrality"] = np.array(
+                        list(nx.eigenvector_centrality(graph, max_iter=1000).values())
+                    )
+                except nx.PowerIterationFailedConvergence:
+                    print("Eigenvector centrality failed to converge. Defaulting to degree centrality.")
+                    props["Eigenvector Centrality"] = np.array(list(nx.degree_centrality(graph).values()))
+
+            if "Clustering Coefficient" in requested_properties:
+                props["Clustering Coefficient"] = np.array(list(nx.clustering(graph).values()))
+
+        if "Propagated Label Cluster" in requested_properties:
+            props["Propagated Label Cluster"] = compute_propagated_label_cluster_ids(
+                data=data,
+                num_hops=self.get_property_option("propagated_label_num_hops", 3),
+                decay=self.get_property_option("propagated_label_decay", 0.5),
+                num_clusters=self.get_property_option("propagated_label_num_clusters", 50),
+                seed=self.seed,
+                min_cluster_size=compute_effective_min_cluster_size(
+                    num_nodes=data.num_nodes,
+                    min_cluster_size=self.get_property_option("propagated_label_min_cluster_size", 25),
+                    min_cluster_fraction=self.get_property_option("propagated_label_min_cluster_fraction", 0.005),
+                    num_folds=self.n_splits,
+                    min_nodes_per_fold=self.get_property_option("propagated_label_min_nodes_per_fold", 5),
+                ),
+            )
+
+        if "Neighborhood Count" in requested_properties:
+            props["Neighborhood Count"] = compute_neighborhood_count_cluster_ids(
+                data=data,
+                num_hops=self.get_property_option("neighborhood_count_num_hops", 3),
+                decay=self.get_property_option("neighborhood_count_decay", 0.5),
+                num_clusters=self.get_property_option("neighborhood_count_num_clusters", 50),
+                seed=self.seed,
+                min_cluster_size=compute_effective_min_cluster_size(
+                    num_nodes=data.num_nodes,
+                    min_cluster_size=self.get_property_option("neighborhood_count_min_cluster_size", 25),
+                    min_cluster_fraction=self.get_property_option("neighborhood_count_min_cluster_fraction", 0.005),
+                    num_folds=self.n_splits,
+                    min_nodes_per_fold=self.get_property_option("neighborhood_count_min_nodes_per_fold", 5),
+                ),
+                log_scale=self.get_property_option("neighborhood_count_log_scale", False),
+            )
+
+        return props
+
+    def get_fold_stat_property_names(self):
+        configured_properties = self.cfg.get("fold_stat_properties", list(self.PROPERTY_NAMES))
+        if isinstance(configured_properties, str):
+            configured_properties = [configured_properties]
+
+        property_names = []
+        for property_name in configured_properties:
+            property_names.append(self.canonical_property_name(property_name))
+
+        return property_names
+
+    def compute_fold_bucket_emd_summary(self, data, folds, props=None):
+        if props is None:
+            props = self._compute_node_properties(data)
+        fold_bucket_masks = [fold["test_mask"].cpu().numpy() for fold in folds]
+        emd_summary = {column_name: "" for column_name in self.PROPERTY_COLUMN_NAMES.values()}
+
+        for prop_name in self.get_fold_stat_property_names():
+            prop_data = props[prop_name]
+            emd_values = []
+
+            for fold_bucket_mask in fold_bucket_masks:
+                fold_bucket_data = prop_data[fold_bucket_mask]
+                if self.is_categorical_property(prop_name):
+                    emd_values.append(
+                        self._categorical_total_variation_distance(fold_bucket_data, prop_data)
+                    )
+                else:
+                    emd_values.append(wasserstein_distance(fold_bucket_data, prop_data))
+
+            emd_summary[self.PROPERTY_COLUMN_NAMES[prop_name]] = float(np.mean(emd_values))
+
+        return emd_summary
+
+    @staticmethod
+    def _categorical_total_variation_distance(fold_values, global_values):
+        fold_values = np.asarray(fold_values, dtype=np.int64)
+        global_values = np.asarray(global_values, dtype=np.int64)
+        if len(fold_values) == 0 or len(global_values) == 0:
+            return float("inf")
+
+        num_categories = int(max(fold_values.max(), global_values.max())) + 1
+        fold_distribution = np.bincount(fold_values, minlength=num_categories) / len(fold_values)
+        global_distribution = np.bincount(global_values, minlength=num_categories) / len(global_values)
+        return float(0.5 * np.abs(fold_distribution - global_distribution).sum())
 
     def _analyze_distributions(self, data, folds, dataset_name):
+        """Compute, log, and optionally plot fold-property diagnostics."""
         props = self._compute_node_properties(data)
-        prop_names = list(props.keys())
+        prop_names = self.get_fold_stat_property_names()
         split_specs = [
             ("Train", "train_mask"),
             ("Val", "val_mask"),
             ("Test", "test_mask"),
         ]
-        comparisons = [
-            ("Train_vs_Val", "train_mask", "val_mask"),
-            ("Train_vs_Test", "train_mask", "test_mask"),
-        ]
 
-        if getattr(self.cfg, "plot_fold_statistics", False):
+        should_log = self.cfg.get("log_fold_statistics", True)
+        should_plot = self.cfg.get("plot_fold_statistics", False)
+
+        if should_plot:
             fig, axes = plt.subplots(
                 len(folds),
                 len(prop_names),
@@ -149,36 +336,33 @@ class BaseNodeStratifier(ABC):
                 squeeze=False,
             )
             fig.suptitle(
-                f"{dataset_name} - Fold Property PDFs - {self.__class__.__name__}",
+                f"{dataset_name} - Fold Property PDFs - {self.stratification_method} | "
+                f"{dataset_metric_summary(dataset_name, data)}",
                 fontsize=20,
             )
 
-        for fold_idx, fold in enumerate(folds):
-            masks = {name: fold[mask_key].cpu().numpy() for name, mask_key in split_specs}
+        self.last_fold_emd_summary = self.compute_fold_bucket_emd_summary(data, folds, props)
+        if should_log:
+            row = [
+                dataset_name,
+                self.stratification_method,
+                self.seed,
+                *[
+                    self.last_fold_emd_summary[column_name]
+                    for column_name in self.PROPERTY_COLUMN_NAMES.values()
+                ],
+            ]
 
-            for prop_idx, prop_name in enumerate(prop_names):
-                prop_data = props[prop_name]
+            with open(self.cfg.fold_stats_csv_filename, mode="a", newline="") as file:
+                writer = csv.writer(file)
+                writer.writerow(row)
 
-                for comparison_name, left_key, right_key in comparisons:
-                    left_data = prop_data[fold[left_key].cpu().numpy()]
-                    right_data = prop_data[fold[right_key].cpu().numpy()]
-                    emd = wasserstein_distance(left_data, right_data)
-                    ks_stat, _ = ks_2samp(left_data, right_data)
+        if should_plot:
+            for fold_idx, fold in enumerate(folds):
+                masks = {name: fold[mask_key].cpu().numpy() for name, mask_key in split_specs}
 
-                    with open(self.cfg.fold_stats_csv_filename, mode="a", newline="") as file:
-                        writer = csv.writer(file)
-                        writer.writerow([
-                            dataset_name,
-                            self.__class__.__name__,
-                            self.seed,
-                            fold_idx + 1,
-                            comparison_name,
-                            prop_name,
-                            emd,
-                            ks_stat,
-                        ])
-
-                if getattr(self.cfg, "plot_fold_statistics", False):
+                for prop_idx, prop_name in enumerate(prop_names):
+                    prop_data = props[prop_name]
                     ax = axes[fold_idx, prop_idx]
 
                     for split_name, _ in split_specs:
@@ -205,6 +389,5 @@ class BaseNodeStratifier(ABC):
                     if fold_idx == 0 and prop_idx == 0:
                         ax.legend()
 
-        if getattr(self.cfg, "plot_fold_statistics", False):
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             plt.show()
