@@ -207,7 +207,12 @@ marimo/_lsp/
 __marimo__/
 
 # Project outputs
+.DS_Store
 *.png
 *.csv
 outputs/
 src/outputs/
+src/logs/*
+src/data/*
+!src/data/.gitkeep
+!src/logs/.gitkeep

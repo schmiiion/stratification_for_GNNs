@@ -29,8 +29,8 @@ class WDESKFold(BaseNodeStratifier):
         )
         self.property_name = self.canonical_property_name(property_name)
         self.stratification_method = f"WDES_{self.PROPERTY_METHOD_NAMES[self.property_name]}"
-        self.n_gen = int(self.cfg.get("wdes_n_gen", 50)) #wieviele Iterationen
-        self.n_pop = int(self.cfg.get("wdes_n_pop", 100)) #wieviele Kandidaten sind am "Leben"
+        self.n_gen = int(self.cfg.get("wdes_n_gen", 50))
+        self.n_pop = int(self.cfg.get("wdes_n_pop", 100))
         self.cxpb = float(self.cfg.get("wdes_cxpb", 0.5))
         self.mutpb = float(self.cfg.get("wdes_mutpb", 0.2))
         self.tournament_size = int(self.cfg.get("wdes_tournament_size", 3))
@@ -216,7 +216,7 @@ class WDESKFold(BaseNodeStratifier):
         return (float(np.mean(distances)),)
 
     def _create_individual(self):
-        """erstes erstellen von Kandidaten - random shuffle"""
+        """Create one exact-size random fold assignment."""
         individual = []
         for fold_idx, count in enumerate(self.target_fold_counts):
             individual.extend([fold_idx] * int(count))
@@ -253,7 +253,7 @@ class WDESKFold(BaseNodeStratifier):
         return individual
 
     def _uniform_mate_correct(self, ind1, ind2, indpb=0.5):
-        """This function is garbage"""
+        """Uniform crossover followed by exact fold-size repair."""
         for idx in range(min(len(ind1), len(ind2))):
             if random.random() < indpb:
                 ind1[idx], ind2[idx] = ind2[idx], ind1[idx]

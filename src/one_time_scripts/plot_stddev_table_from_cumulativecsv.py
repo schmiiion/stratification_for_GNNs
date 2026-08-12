@@ -3,6 +3,7 @@ import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from omegaconf import OmegaConf
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -16,9 +17,11 @@ from utils.dataset_reference_metrics import (
     dataset_homophily_text,
     dataset_li_text,
 )
+from utils.experiment_utils import as_list
 
 
 CUMULATIVE_RESULTS_FILE = SRC_ROOT / "logs/runs/cumulative_results.csv"
+CONFIG_FILE = SRC_ROOT / "conf/config.yaml"
 
 # Leave empty to plot every dataset found in the cumulative results file.
 DATASETS_TO_PLOT = []
@@ -27,20 +30,114 @@ DEDUPLICATE_SEEDED_RUNS = True
 EXPECTED_NUM_FOLDS = 5
 MAX_SANITY_EXAMPLES = 8
 MODEL_ORDER = ["GCN", "GAT", "SAGE", "GPRGNN", "H2GCN", "MLP"]
-METHOD_ORDER = [
-    "Random",
-    "Label",
-    "Neighborhood Heterogeneity",
-    "Neighborhood Distribution",
-    "Neighborhood Count",
-]
+
+PROPERTY_ALIASES = {
+    "degree": "Degree",
+    "neighborhoodheterogeneity": "Neighborhood Heterogeneity",
+    "neighborhoodhomophily": "Neighborhood Heterogeneity",
+    "neighhet": "Neighborhood Heterogeneity",
+    "pagerank": "PageRank",
+    "eigenvectorcentrality": "Eigenvector Centrality",
+    "eigencentrality": "Eigenvector Centrality",
+    "clusteringcoefficient": "Clustering Coefficient",
+    "clustercoeff": "Clustering Coefficient",
+    "clustering": "Clustering Coefficient",
+    "propagatedlabelcluster": "Propagated Label Cluster",
+    "propagatedlabelclusters": "Propagated Label Cluster",
+    "propagatedlabeldistribution": "Propagated Label Cluster",
+    "labelpropagationcluster": "Propagated Label Cluster",
+    "propagatedlabel": "Propagated Label Cluster",
+    "proplabelcluster": "Propagated Label Cluster",
+    "neighborhoodcount": "Neighborhood Count",
+    "neighborhoodcounts": "Neighborhood Count",
+    "neighborhoodlabelcount": "Neighborhood Count",
+    "neighborhoodlabelcounts": "Neighborhood Count",
+    "neighcount": "Neighborhood Count",
+    "neighcounts": "Neighborhood Count",
+}
+PROPERTY_TO_METHOD = {
+    "Degree": "Degree",
+    "Neighborhood Heterogeneity": "Neighborhood Heterogeneity",
+    "PageRank": "PageRank",
+    "Eigenvector Centrality": "Eigenvector Centrality",
+    "Clustering Coefficient": "Clustering Coefficient",
+    "Propagated Label Cluster": "Neighborhood Distribution",
+    "Neighborhood Count": "Neighborhood Count",
+}
 METHOD_LABELS = {
     "Random": "Random",
     "Label": "Label",
+    "Degree": "Degree",
     "Neighborhood Heterogeneity": "Neigh.\nHom.",
+    "PageRank": "PageRank",
+    "Eigenvector Centrality": "Eigen.\nCentrality",
+    "Clustering Coefficient": "Clustering\nCoeff.",
     "Neighborhood Distribution": "Neigh.\nDistribution",
     "Neighborhood Count": "Neigh.\nCount",
 }
+
+
+def normalized_key(value):
+    return str(value).replace(" ", "").replace("_", "").replace("-", "").lower()
+
+
+def canonical_property_name(property_name):
+    key = normalized_key(property_name)
+    if key not in PROPERTY_ALIASES:
+        return None
+    return PROPERTY_ALIASES[key]
+
+
+def load_config():
+    if not CONFIG_FILE.exists():
+        return OmegaConf.create({})
+    return OmegaConf.load(CONFIG_FILE)
+
+
+def configured_stratification_keys(cfg):
+    return {
+        str(stratification_type).replace("-", "_").lower()
+        for stratification_type in as_list(cfg.get("stratification_types", []))
+    }
+
+
+def property_stratification_is_enabled(cfg):
+    property_keys = {"property", "property_stratified", "wdes"}
+    return bool(configured_stratification_keys(cfg) & property_keys)
+
+
+def configured_sampling_method(cfg):
+    key = normalized_key(cfg.get("sampling_method", "sklearn"))
+    if key in {"ga", "wdes"}:
+        return "ga"
+    return "sklearn"
+
+
+def configured_method_order(cfg):
+    methods = []
+    stratification_keys = configured_stratification_keys(cfg)
+
+    if "random" in stratification_keys:
+        methods.append("Random")
+    if "label" in stratification_keys:
+        methods.append("Label")
+
+    if property_stratification_is_enabled(cfg):
+        for property_name in as_list(cfg.get("properties", [])):
+            canonical_name = canonical_property_name(property_name)
+            if canonical_name is None:
+                continue
+            method = PROPERTY_TO_METHOD[canonical_name]
+            if method not in methods:
+                methods.append(method)
+
+    return methods
+
+
+CONFIG = load_config()
+METHOD_ORDER = configured_method_order(CONFIG)
+ACTIVE_SAMPLING_METHOD = configured_sampling_method(CONFIG)
+PROPERTY_STRATIFICATION_ENABLED = property_stratification_is_enabled(CONFIG)
 
 
 DATASET_DISPLAY_NAMES = {
@@ -78,15 +175,53 @@ def method_from_stratifier(stratifier):
         return "Random"
     if stratifier == "LabelStratifiedKFold":
         return "Label"
+    if "NeighCount" in stratifier or "NeighborhoodCount" in stratifier:
+        return "Neighborhood Count"
+    if "PropLabelCluster" in stratifier:
+        return "Neighborhood Distribution"
     if stratifier == "WDES_NeighHet" or stratifier.startswith("Sklearn_NeighHet"):
         return "Neighborhood Heterogeneity"
     if stratifier.startswith("StratifiedKFoldDynamic_NeighHet"):
         return "Neighborhood Heterogeneity"
-    if "PropLabelCluster" in stratifier:
-        return "Neighborhood Distribution"
-    if "NeighCount" in stratifier or "NeighborhoodCount" in stratifier:
-        return "Neighborhood Count"
+    if "PageRank" in stratifier:
+        return "PageRank"
+    if "EigCentrality" in stratifier or "Eigenvector" in stratifier:
+        return "Eigenvector Centrality"
+    if "Clustering" in stratifier:
+        return "Clustering Coefficient"
+    if "Degree" in stratifier:
+        return "Degree"
     return None
+
+
+def sampling_method_from_stratifier(stratifier):
+    stratifier = str(stratifier)
+    if stratifier.startswith("WDES_"):
+        return "ga"
+    if (
+        stratifier.startswith("Sklearn")
+        or stratifier.startswith("StratifiedKFoldDynamic")
+        or stratifier.startswith("StratifiedKFoldCategorical")
+    ):
+        return "sklearn"
+    return None
+
+
+def row_matches_config(row):
+    method = row["Method"]
+    if method not in METHOD_ORDER:
+        return False
+
+    stratification_keys = configured_stratification_keys(CONFIG)
+    if method == "Random":
+        return "random" in stratification_keys
+    if method == "Label":
+        return "label" in stratification_keys
+
+    if not PROPERTY_STRATIFICATION_ENABLED:
+        return False
+    raw_sampling_method = sampling_method_from_stratifier(row["StratificationType"])
+    return raw_sampling_method == ACTIVE_SAMPLING_METHOD
 
 
 def load_cumulative_results():
@@ -116,6 +251,7 @@ def load_cumulative_results():
     df["DatasetKey"] = df["Dataset"].map(canonical_dataset_key)
     df["Method"] = df["StratificationType"].map(method_from_stratifier)
     df = df[df["Method"].notna()].copy()
+    df = df[df.apply(row_matches_config, axis=1)].copy()
     if df.empty:
         raise ValueError("No rows matched the requested stratification methods.")
 
@@ -256,8 +392,7 @@ def dataset_sort_key(dataset_name):
 
 
 def displayed_methods(dataset_stats):
-    available_methods = set(dataset_stats["Method"])
-    return [method for method in METHOD_ORDER if method in available_methods]
+    return METHOD_ORDER
 
 
 def plot_dataset_table(dataset_name, stats):

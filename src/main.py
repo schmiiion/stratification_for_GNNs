@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from factories.dataset_factory import DatasetFactory
 from factories.model_factory import get_models
-from factories.stratifier_factory import get_stratifiers, property_cache_key
+from factories.stratifier_factory import CLUSTERED_PROPERTIES, get_stratifiers, property_cache_key
 import hydra
 from omegaconf import DictConfig
 import numpy as np
@@ -51,7 +51,6 @@ def worker_task(
     stopped_epoch = max_epochs
     stopped_early = False
 
-    # --- TRAINING LOOP ---
     for epoch in range(1, max_epochs + 1):
         model.train()
         optimizer.zero_grad()
@@ -79,7 +78,6 @@ def worker_task(
             stopped_early = True
             break
 
-    # --- EVALUATION ---
     if best_state is not None:
         model.load_state_dict(best_state)
 
@@ -88,8 +86,6 @@ def worker_task(
         logits = model(model_x, model_adj)
         test_loss, test_acc = evaluate_mask(logits, data.y, fold["test_mask"])
 
-    # --- FIRE AND FORGET LOGGING ---
-    # Send the data to the central logger instantly
     log_queue.put(
         [
             dataset_id,
@@ -144,17 +140,24 @@ def configured_dataset_requests(cfg):
                 }
 
 
-def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None):
+def configured_clustered_properties(cfg):
+    clustered_properties = []
+    for property_name in as_list(cfg.get("properties", [])):
+        canonical_name = BaseNodeStratifier.canonical_property_name(property_name)
+        if canonical_name in CLUSTERED_PROPERTIES and canonical_name not in clustered_properties:
+            clustered_properties.append(canonical_name)
+    return clustered_properties
+
+
+def maybe_plot_clustered_property_clusters(cfg, dataset_id, data, property_name, selected_k=None):
     if not cfg.get("plot_propagated_label_clusters", False):
-        return None
-    if not uses_property(cfg, "Propagated Label Cluster"):
         return None
 
     from stratify.plot_propagated_label_clusters import plot_propagated_label_clusters
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
-    print(f"Creating propagated-label cluster plot for {dataset_id}...")
+    print(f"Creating {property_name} cluster plot for {dataset_id}...")
     _, selected_k = plot_propagated_label_clusters(
         cfg=cfg,
         dataset_name=dataset_id,
@@ -164,22 +167,21 @@ def maybe_plot_propagated_label_clusters(cfg, dataset_id, data, selected_k=None)
         output_dir=cfg.run_output_dir,
         show=False,
         selected_k=selected_k,
+        property_name=property_name,
     )
-    print(f"Finished propagated-label cluster plot for {dataset_id}.")
+    print(f"Finished {property_name} cluster plot for {dataset_id}.")
     return plot_seed, selected_k
 
 
-def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
+def maybe_plot_gap_statistic_curve(cfg, dataset_id, data, property_name):
     if not cfg.get("plot_gap_statistic_curve", False):
-        return None
-    if not uses_property(cfg, "Propagated Label Cluster"):
         return None
 
     from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
 
     fold_seeds = as_list(cfg.get("fold_seeds", [0]))
     plot_seed = int(fold_seeds[0]) if fold_seeds else 0
-    print(f"Creating gap-statistic plot for {dataset_id}...")
+    print(f"Creating gap-statistic plot for {dataset_id} ({property_name})...")
     _, selected_k, _ = plot_gap_statistic_curve(
         cfg=cfg,
         dataset_name=dataset_id,
@@ -188,69 +190,60 @@ def maybe_plot_gap_statistic_curve(cfg, dataset_id, data):
         save_figure=True,
         output_dir=cfg.run_output_dir,
         show=False,
+        property_name=property_name,
     )
-    print(f"Finished gap-statistic plot for {dataset_id}.")
+    print(f"Finished gap-statistic plot for {dataset_id} ({property_name}).")
     return plot_seed, selected_k
-
-
-def uses_property(cfg, property_name):
-    target_property = BaseNodeStratifier.canonical_property_name(property_name)
-    configured_properties = as_list(cfg.get("properties", []))
-    return any(
-        BaseNodeStratifier.canonical_property_name(configured_property) == target_property
-        for configured_property in configured_properties
-    )
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
     CsvLogger(cfg).initialize()
 
-    # --- 1. Setup the Queue and Central Logger ---
     manager = multiprocessing.Manager()
     log_queue = manager.Queue()
 
-    # Start the logger as a background process
     metrics_writer = multiprocessing.Process(
         target=run_metrics_writer_process,
         args=(log_queue, cfg.run_csv_filename),
     )
     metrics_writer.start()
 
-    # num_workers = max(1, multiprocessing.cpu_count() - 2)
-    #num_workers = int(cfg.get("num_workers", 4))
-    num_workers = 2
+    num_workers = int(cfg.get("num_workers", 4))
     print(f"Starting ProcessPoolExecutor with {num_workers} workers.")
 
-    # DATASET LOOP
     for dataset_id, dataset_kwargs in configured_dataset_requests(cfg):
         print(f"\n{'=' * 40}\nDATASET: {dataset_id}\n{'=' * 40}")
 
         dataset, input_dim, output_dim, data = DatasetFactory.get_dataset(**dataset_kwargs)
         property_variant_cache = {}
-        selected_gap_k = None
-        gap_plot_result = maybe_plot_gap_statistic_curve(cfg, dataset_id, data)
-        if gap_plot_result is not None:
-            plot_seed, selected_gap_k = gap_plot_result
-            property_variant_cache[property_cache_key(
-                dataset_id,
-                plot_seed,
-                "Propagated Label Cluster",
-            )] = int(selected_gap_k)
+        selected_gap_k_by_property = {}
+        for property_name in configured_clustered_properties(cfg):
+            gap_plot_result = maybe_plot_gap_statistic_curve(cfg, dataset_id, data, property_name)
+            if gap_plot_result is not None:
+                plot_seed, selected_gap_k = gap_plot_result
+                selected_gap_k_by_property[property_name] = int(selected_gap_k)
+                property_variant_cache[property_cache_key(
+                    dataset_id,
+                    plot_seed,
+                    property_name,
+                )] = int(selected_gap_k)
 
-        cluster_plot_result = maybe_plot_propagated_label_clusters(
-            cfg,
-            dataset_id,
-            data,
-            selected_k=selected_gap_k,
-        )
-        if cluster_plot_result is not None:
-            plot_seed, selected_cluster_k = cluster_plot_result
-            property_variant_cache[property_cache_key(
+        for property_name in configured_clustered_properties(cfg):
+            cluster_plot_result = maybe_plot_clustered_property_clusters(
+                cfg,
                 dataset_id,
-                plot_seed,
-                "Propagated Label Cluster",
-            )] = int(selected_cluster_k)
+                data,
+                property_name=property_name,
+                selected_k=selected_gap_k_by_property.get(property_name),
+            )
+            if cluster_plot_result is not None:
+                plot_seed, selected_cluster_k = cluster_plot_result
+                property_variant_cache[property_cache_key(
+                    dataset_id,
+                    plot_seed,
+                    property_name,
+                )] = int(selected_cluster_k)
 
         adj_hop1, adj_hop2 = None, None
         if "H2GCN" in cfg.model_names:
@@ -269,7 +262,6 @@ def main(cfg: DictConfig):
                 folds = stratifier.get_folds(data)
                 stratification_name = stratifier.stratification_method
 
-                # 2. Build tasks
                 tasks = []
                 for fold_idx, fold in enumerate(folds):
                     for model_name in cfg.model_names:
@@ -293,7 +285,6 @@ def main(cfg: DictConfig):
                                 )
                             )
 
-                # 3. Execute tasks
                 with ProcessPoolExecutor(max_workers=num_workers) as executor:
                     futures = [executor.submit(worker_task, *args) for args in tasks]
 
@@ -306,8 +297,6 @@ def main(cfg: DictConfig):
 
         del dataset, data
 
-    # --- 4. Clean Shutdown ---
-    # Once all loops and executors are finished, tell the logger to stop.
     log_queue.put("KILL")
     metrics_writer.join()
 

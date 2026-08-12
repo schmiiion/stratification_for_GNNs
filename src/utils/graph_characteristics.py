@@ -5,7 +5,7 @@ import torch
 def _as_numpy_labels(y):
     if isinstance(y, torch.Tensor):
         y = y.detach().cpu().numpy()
-    _, inverse = np.unique(np.asarray(y), return_inverse=True) #from [10, 10, 30, 50, 30] to [10, 30, 50], [0, 0, 1, 2, 1]
+    _, inverse = np.unique(np.asarray(y), return_inverse=True)
     return inverse.astype(np.int64)
 
 
@@ -82,12 +82,12 @@ def compute_edge_label_informativeness(edge_index, y):
 
     source_labels = labels[edge_index[0]]
     target_labels = labels[edge_index[1]]
-    joint_counts = np.zeros((num_classes, num_classes), dtype=float) #
-    np.add.at(joint_counts, (source_labels, target_labels), 1.0) #fill the CxC Joint Distribution (label-pair)
+    joint_counts = np.zeros((num_classes, num_classes), dtype=float)
+    np.add.at(joint_counts, (source_labels, target_labels), 1.0)
 
-    joint = joint_counts / joint_counts.sum() #normalize
-    source_marginal = joint.sum(axis=1) #distribution of source labels
-    return _normalized_mutual_information(joint, source_marginal) #final equation from the definition
+    joint = joint_counts / joint_counts.sum()
+    source_marginal = joint.sum(axis=1)
+    return _normalized_mutual_information(joint, source_marginal)
 
 
 def compute_node_label_informativeness(edge_index, y, num_nodes):

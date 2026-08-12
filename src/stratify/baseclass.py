@@ -174,12 +174,7 @@ class BaseNodeStratifier(ABC):
         return mask
 
     def _validate_fold_buckets(self, fold_buckets, num_nodes):
-        """Here i chck:
-        -is the number of buckets correct?
-        -is the overall number of nodes correct
-        -is every node occurring once?
-        -is the enumeration correct
-        """
+        """Ensure buckets are well-formed and cover every node exactly once."""
         if len(fold_buckets) != self.n_splits:
             raise ValueError(f"Expected {self.n_splits} fold buckets, got {len(fold_buckets)}.")
 
@@ -194,23 +189,18 @@ class BaseNodeStratifier(ABC):
         if unique_indices[0] != 0 or unique_indices[-1] != num_nodes - 1:
             raise ValueError("Fold buckets contain node indices outside the graph.")
 
-    #TODO: make this a static method
     def _compute_node_properties(self, data):
-        """
-        Precompute node-level properties used for fold diagnostics.
-        """
+        """Precompute node-level properties used for fold diagnostics."""
         num_nodes = data.num_nodes
         requested_properties = self._requested_node_property_names()
         props = {}
 
-        #1. Degree
         row, col = data.edge_index
         needs_degree = bool({"Degree", "Neighborhood Heterogeneity"} & requested_properties)
         if needs_degree:
             deg = degree(col, num_nodes).cpu().numpy()
             props["Degree"] = deg
 
-        #Neighborhood heterogenity
         if "Neighborhood Heterogeneity" in requested_properties:
             y = data.y
             same_class_match = (y[row] == y[col]).float()
@@ -326,8 +316,7 @@ class BaseNodeStratifier(ABC):
         return float(0.5 * np.abs(fold_distribution - global_distribution).sum())
 
     def _analyze_distributions(self, data, folds, dataset_name):
-        """Calls the function to compute the average EMDs to global fold distribution and either logs or plots the results"""
-        #Compute all properties of the graph nodes
+        """Compute, log, and optionally plot fold-property diagnostics."""
         props = self._compute_node_properties(data)
         prop_names = self.get_fold_stat_property_names()
         split_specs = [

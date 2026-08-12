@@ -17,10 +17,16 @@ from factories.dataset_factory import DatasetFactory
 from stratify.propagated_label_distribution import (
     cluster_label_distributions,
     compute_effective_min_cluster_size,
-    compute_propagated_label_distribution,
     select_gap_statistic_cluster_counts,
 )
-from stratify.plot_gap_statistic_curve import plot_gap_statistic_curve
+from stratify.plot_gap_statistic_curve import (
+    canonical_clustered_property_name,
+    cluster_plot_config,
+    clustered_property_name_from_cfg,
+    clustered_property_names_from_cfg,
+    compute_clustered_property_vectors,
+    plot_gap_statistic_curve,
+)
 from utils.dataset_reference_metrics import dataset_metric_summary
 from utils.experiment_utils import as_list, dataset_suffix
 
@@ -86,28 +92,31 @@ def configured_dataset_requests(cfg):
                 }
 
 
-def select_cluster_count(cfg, distributions, strat_seed):
+def select_cluster_count(cfg, distributions, strat_seed, property_name):
+    canonical_name = canonical_clustered_property_name(property_name)
+    spec = cluster_plot_config(canonical_name)
+    prefix = spec["prefix"]
     selection_method = str(
-        cfg_get(cfg, "propagated_label_cluster_selection", "fixed")
+        cfg_get(cfg, f"{prefix}_cluster_selection", "fixed")
     ).replace("-", "_").lower()
 
     if selection_method in {"gap", "gap_topk", "gap_statistic"}:
         selected = select_gap_statistic_cluster_counts(
             distributions=distributions,
             seed=strat_seed,
-            reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
-            min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-            min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+            reference_runs=cfg_get(cfg, f"{prefix}_gap_reference_runs", 5),
+            min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+            min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
             num_folds=cfg_get(cfg, "num_folds", 5),
-            min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
-            min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
-            max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
-            show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
-            progress_label="Gap statistic for propagated-label t-SNE",
+            min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
+            min_k=cfg_get(cfg, f"{prefix}_gap_min_k", 2),
+            max_k=cfg_get(cfg, f"{prefix}_gap_max_k", 50),
+            show_progress=cfg_get(cfg, f"{prefix}_gap_progress", True),
+            progress_label=f"Gap statistic for {spec['label']} t-SNE",
         )
         return int(selected[0])
 
-    configured = cfg_get(cfg, "propagated_label_num_clusters", 50)
+    configured = cfg_get(cfg, f"{prefix}_num_clusters", 50)
     return int(as_list(configured)[0])
 
 
@@ -230,23 +239,28 @@ def plot_propagated_label_clusters(
     output_dir=None,
     show=True,
     selected_k=None,
+    property_name=None,
 ):
-    distributions = compute_propagated_label_distribution(
-        data=data,
-        num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
-        decay=cfg_get(cfg, "propagated_label_decay", 0.5),
-    )
+    property_name = clustered_property_name_from_cfg(cfg) if property_name is None else property_name
+    canonical_name = canonical_clustered_property_name(property_name)
+    spec = cluster_plot_config(canonical_name)
+    prefix = spec["prefix"]
+    distributions = compute_clustered_property_vectors(cfg, data, canonical_name)
     if selected_k is None:
-        selected_k = select_cluster_count(cfg, distributions, strat_seed)
+        selected_k = select_cluster_count(cfg, distributions, strat_seed, canonical_name)
     selected_k = int(selected_k)
-    max_tsne_nodes = cfg_get(cfg, "propagated_label_tsne_max_nodes", max_tsne_nodes)
+    max_tsne_nodes = cfg_get(
+        cfg,
+        f"{prefix}_tsne_max_nodes",
+        cfg_get(cfg, "propagated_label_tsne_max_nodes", max_tsne_nodes),
+    )
 
     effective_min_cluster_size = compute_effective_min_cluster_size(
         num_nodes=int(data.num_nodes),
-        min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-        min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+        min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+        min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
         num_folds=cfg_get(cfg, "num_folds", 5),
-        min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
+        min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
     )
     cluster_ids = cluster_label_distributions(
         distributions=distributions,
@@ -258,7 +272,7 @@ def plot_propagated_label_clusters(
     labels = data.y.detach().cpu().numpy()
 
     print(
-        f"Computing PCA for {dataset_name} on {len(distributions)} propagated-label vectors...",
+        f"Computing PCA for {dataset_name} on {len(distributions)} {spec['label']} vectors...",
         flush=True,
     )
     pca_embedding = fit_pca(distributions)
@@ -267,7 +281,7 @@ def plot_propagated_label_clusters(
     tsne_idx = sample_nodes(len(distributions), max_tsne_nodes, strat_seed)
     tsne_distributions = distributions[tsne_idx]
     print(
-        f"Computing t-SNE for {dataset_name} on {len(tsne_idx)} propagated-label vectors...",
+        f"Computing t-SNE for {dataset_name} on {len(tsne_idx)} {spec['label']} vectors...",
         flush=True,
     )
     tsne_embedding = fit_tsne(tsne_distributions, strat_seed)
@@ -313,10 +327,10 @@ def plot_propagated_label_clusters(
         else f"t-SNE nodes={int(data.num_nodes)}"
     )
     fig.suptitle(
-        f"{dataset_name}: propagated-label PCA and t-SNE | "
+        f"{dataset_name}: {spec['title']} PCA and t-SNE | "
         f"{dataset_metric_summary(dataset_name, data)}\n"
-        f"hops={cfg_get(cfg, 'propagated_label_num_hops', 3)} | "
-        f"decay={cfg_get(cfg, 'propagated_label_decay', 0.5)} | "
+        f"hops={cfg_get(cfg, f'{prefix}_num_hops', 3)} | "
+        f"decay={cfg_get(cfg, f'{prefix}_decay', 0.5)} | "
         f"selected k={selected_k} | seed={strat_seed} | PCA nodes={int(data.num_nodes)} | {tsne_text}",
         fontsize=15,
         fontweight="bold",
@@ -327,7 +341,7 @@ def plot_propagated_label_clusters(
             output_dir = create_plot_output_dir([dataset_name])
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"PropagatedLabelPCA_TSNEClusters_{dataset_name}_k{selected_k}.png"
+        output_path = output_dir / f"{spec['cluster_filename_prefix']}_{dataset_name}_k{selected_k}.png"
         fig.savefig(output_path, bbox_inches="tight")
         print(f"Saved figure to: {output_path}")
 
@@ -349,10 +363,15 @@ def main():
     strat_seed = int(fold_seeds[0]) if fold_seeds else STRAT_SEED
     output_dir = create_plot_output_dir([dataset_name for dataset_name, _ in dataset_requests])
 
+    clustered_properties = clustered_property_names_from_cfg(cfg)
+    if not clustered_properties:
+        raise ValueError("No configured properties support PCA/t-SNE clustering plots.")
+
     print(
-        "Creating propagated-label PCA/t-SNE plots for configured datasets: "
+        "Creating PCA/t-SNE cluster plots for configured datasets: "
         f"{', '.join(dataset_name for dataset_name, _ in dataset_requests)}"
     )
+    print(f"Clustered properties: {', '.join(clustered_properties)}")
     print(f"Using stratification seed {strat_seed}.")
     print(f"Saving figures to: {output_dir}")
 
@@ -367,31 +386,38 @@ def main():
         dataset_output_dir = create_dataset_plot_output_dir(output_dir, dataset_name)
         print(f"Saving {dataset_name} plots to: {dataset_output_dir}")
 
-        try:
-            _, selected_k, _ = plot_gap_statistic_curve(
+        for property_name in clustered_properties:
+            try:
+                _, selected_k, _ = plot_gap_statistic_curve(
+                    cfg=cfg,
+                    dataset_name=dataset_name,
+                    data=data,
+                    strat_seed=strat_seed,
+                    save_figure=SAVE_FIGURE,
+                    output_dir=dataset_output_dir,
+                    show=False,
+                    property_name=property_name,
+                )
+            except Exception as exc:
+                print(
+                    f"Skipping {dataset_name} {property_name} plots because "
+                    f"gap-statistic plotting failed: {exc}",
+                    flush=True,
+                )
+                continue
+
+            plot_propagated_label_clusters(
                 cfg=cfg,
                 dataset_name=dataset_name,
                 data=data,
                 strat_seed=strat_seed,
+                max_tsne_nodes=cfg_get(cfg, "propagated_label_tsne_max_nodes", MAX_TSNE_NODES),
                 save_figure=SAVE_FIGURE,
                 output_dir=dataset_output_dir,
                 show=False,
+                selected_k=selected_k,
+                property_name=property_name,
             )
-        except Exception as exc:
-            print(f"Skipping {dataset_name} plots because gap-statistic plotting failed: {exc}", flush=True)
-            continue
-
-        plot_propagated_label_clusters(
-            cfg=cfg,
-            dataset_name=dataset_name,
-            data=data,
-            strat_seed=strat_seed,
-            max_tsne_nodes=cfg_get(cfg, "propagated_label_tsne_max_nodes", MAX_TSNE_NODES),
-            save_figure=SAVE_FIGURE,
-            output_dir=dataset_output_dir,
-            show=False,
-            selected_k=selected_k,
-        )
 
 
 if __name__ == "__main__":

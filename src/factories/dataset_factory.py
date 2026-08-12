@@ -36,7 +36,7 @@ class DatasetFactory:
     Factory class to load PyTorch Geometric datasets by name.
     """
 
-    # Internal registry mapping the string name to the PyG Dataset Class
+    # Registry for datasets available through PyTorch Geometric.
     _REGISTRY = {
         "Cora": Planetoid,
         "CiteSeer": Planetoid,
@@ -58,7 +58,8 @@ class DatasetFactory:
         "wikics": "WikiCS",
     }
 
-    _HETEROPHILOUS_DATASET_FILES = {                        #these are from the platonov paper
+    # NPZ files from the heterophilous-graphs / Platonov-style dataset format.
+    _HETEROPHILOUS_DATASET_FILES = {
         "chameleon": Path("chameleon_clean/chameleon_filtered.npz"),
         "squirrel": Path("squirrel_filtered/squirrel_filtered.npz"),
         "texas": Path("texas/texas.npz"),

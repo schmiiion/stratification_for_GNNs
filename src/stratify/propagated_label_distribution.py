@@ -27,7 +27,7 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
     edge_index = data.edge_index.detach().to(labels.device)
     source, target = edge_index[0], edge_index[1]
 
-    current = F.one_hot(labels, num_classes=num_classes).float() # used as starting point for multiplication witn the row-normalized adj, matrix.
+    current = F.one_hot(labels, num_classes=num_classes).float()
     accumulated = torch.zeros((num_nodes, num_classes), device=labels.device)
     deg = torch.bincount(target, minlength=num_nodes).float().clamp(min=1.0)
 
@@ -36,16 +36,15 @@ def compute_propagated_label_distribution(data, num_hops=3, decay=0.5):
         propagated.index_add_(0, target, current[source])
         propagated = propagated / deg[:, None]
 
-        #enforce the decaying from 0 to num_hops
         weight = decay ** hop
         accumulated = accumulated + weight * propagated
         current = propagated
 
     row_sums = accumulated.sum(dim=1, keepdim=True)
-    has_signal = row_sums.squeeze(1) > 0 #dont normalize whgere we have 0 accumulated mass
+    has_signal = row_sums.squeeze(1) > 0
     accumulated[has_signal] = accumulated[has_signal] / row_sums[has_signal]
 
-    if not bool(has_signal.all()): #
+    if not bool(has_signal.all()):
         global_prior = F.one_hot(labels, num_classes=num_classes).float().mean(dim=0)
         accumulated[~has_signal] = global_prior
 
@@ -261,11 +260,11 @@ def _gap_statistic_score(distributions, cluster_count, rng, reference_runs, lowe
             num_clusters=cluster_count,
             seed=int(rng.integers(0, 2**31 - 1)),
         )
-        reference_log_inertias.append(np.log(max(reference_inertia, 1e-12))) #store results from all reference runs
+        reference_log_inertias.append(np.log(max(reference_inertia, 1e-12)))
 
     reference_log_inertias = np.asarray(reference_log_inertias, dtype=float)
     reference_log_inertia_mean = float(np.mean(reference_log_inertias))
-    gap = float(reference_log_inertia_mean - log_inertia) # Gap(k) = E_ref[log(W_k)] - log(W_k)
+    gap = float(reference_log_inertia_mean - log_inertia)
     reference_sd = float(np.std(reference_log_inertias, ddof=1))
     reference_se = reference_sd * np.sqrt(1.0 + 1.0 / reference_runs)
     return {

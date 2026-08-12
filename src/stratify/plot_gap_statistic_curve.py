@@ -11,12 +11,14 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from factories.dataset_factory import DatasetFactory
+from stratify.baseclass import BaseNodeStratifier
 from stratify.propagated_label_distribution import (
     compute_gap_statistic_selection_curve,
+    compute_neighborhood_label_counts,
     compute_propagated_label_distribution,
 )
 from utils.dataset_reference_metrics import dataset_metric_summary
-from utils.experiment_utils import dataset_suffix
+from utils.experiment_utils import as_list, dataset_suffix
 
 
 # Main switches for standalone usage.
@@ -26,6 +28,25 @@ SAVE_FIGURE = False
 
 CONFIG_PATH = SRC_ROOT / "conf/config.yaml"
 OUTPUT_ROOT = SRC_ROOT / "logs/runs"
+
+CLUSTERED_PLOT_CONFIGS = {
+    "Propagated Label Cluster": {
+        "label": "propagated-label",
+        "title": "propagated-label",
+        "prefix": "propagated_label",
+        "compute_vectors": compute_propagated_label_distribution,
+        "gap_filename_prefix": "GapStatistic",
+        "cluster_filename_prefix": "PropagatedLabelPCA_TSNEClusters",
+    },
+    "Neighborhood Count": {
+        "label": "neighborhood-count",
+        "title": "neighborhood-count",
+        "prefix": "neighborhood_count",
+        "compute_vectors": compute_neighborhood_label_counts,
+        "gap_filename_prefix": "GapStatistic_NeighborhoodCount",
+        "cluster_filename_prefix": "NeighborhoodCountPCA_TSNEClusters",
+    },
+}
 
 
 def cfg_get(cfg, key, default):
@@ -38,25 +59,74 @@ def load_dataset(dataset_name):
     return DatasetFactory.get_dataset(name=dataset_name)
 
 
-def compute_curve_from_data(cfg, data, strat_seed, dataset_name="dataset"):
-    distributions = compute_propagated_label_distribution(
-        data=data,
-        num_hops=cfg_get(cfg, "propagated_label_num_hops", 3),
-        decay=cfg_get(cfg, "propagated_label_decay", 0.5),
-    )
+def canonical_clustered_property_name(property_name):
+    canonical_name = BaseNodeStratifier.canonical_property_name(property_name)
+    if canonical_name not in CLUSTERED_PLOT_CONFIGS:
+        available = ", ".join(CLUSTERED_PLOT_CONFIGS)
+        raise ValueError(f"Property '{property_name}' has no cluster plot support. Available: {available}")
+    return canonical_name
+
+
+def clustered_property_names_from_cfg(cfg):
+    property_names = []
+    for property_name in as_list(cfg_get(cfg, "properties", ["Propagated Label Cluster"])):
+        try:
+            canonical_name = BaseNodeStratifier.canonical_property_name(property_name)
+        except ValueError:
+            continue
+        if canonical_name in CLUSTERED_PLOT_CONFIGS and canonical_name not in property_names:
+            property_names.append(canonical_name)
+    return property_names
+
+
+def clustered_property_name_from_cfg(cfg):
+    property_names = clustered_property_names_from_cfg(cfg)
+    if property_names:
+        return property_names[0]
+    return "Propagated Label Cluster"
+
+
+def cluster_plot_config(property_name):
+    return CLUSTERED_PLOT_CONFIGS[canonical_clustered_property_name(property_name)]
+
+
+def compute_clustered_property_vectors(cfg, data, property_name):
+    canonical_name = canonical_clustered_property_name(property_name)
+    spec = cluster_plot_config(canonical_name)
+    prefix = spec["prefix"]
+    vector_kwargs = {
+        "data": data,
+        "num_hops": cfg_get(cfg, f"{prefix}_num_hops", 3),
+        "decay": cfg_get(cfg, f"{prefix}_decay", 0.5),
+    }
+    if canonical_name == "Neighborhood Count":
+        vector_kwargs["log_scale"] = cfg_get(cfg, "neighborhood_count_log_scale", False)
+    return spec["compute_vectors"](**vector_kwargs)
+
+
+def compute_curve_from_data(cfg, data, strat_seed, dataset_name="dataset", property_name=None):
+    property_name = clustered_property_name_from_cfg(cfg) if property_name is None else property_name
+    canonical_name = canonical_clustered_property_name(property_name)
+    spec = cluster_plot_config(canonical_name)
+    prefix = spec["prefix"]
+    distributions = compute_clustered_property_vectors(cfg, data, canonical_name)
     return compute_gap_statistic_selection_curve(
         distributions=distributions,
         seed=strat_seed,
-        reference_runs=cfg_get(cfg, "propagated_label_gap_reference_runs", 5),
-        min_cluster_size=cfg_get(cfg, "propagated_label_min_cluster_size", 25),
-        min_cluster_fraction=cfg_get(cfg, "propagated_label_min_cluster_fraction", 0.005),
+        reference_runs=cfg_get(cfg, f"{prefix}_gap_reference_runs", 5),
+        min_cluster_size=cfg_get(cfg, f"{prefix}_min_cluster_size", 25),
+        min_cluster_fraction=cfg_get(cfg, f"{prefix}_min_cluster_fraction", 0.005),
         num_folds=cfg_get(cfg, "num_folds", 5),
-        min_nodes_per_fold=cfg_get(cfg, "propagated_label_min_nodes_per_fold", 5),
-        min_k=cfg_get(cfg, "propagated_label_gap_min_k", 2),
-        max_k=cfg_get(cfg, "propagated_label_gap_max_k", 50),
-        extra_after_selected=cfg_get(cfg, "propagated_label_gap_plot_extra_k", 5),
-        show_progress=cfg_get(cfg, "propagated_label_gap_progress", True),
-        progress_label=f"Gap curve {dataset_name} seed={strat_seed}",
+        min_nodes_per_fold=cfg_get(cfg, f"{prefix}_min_nodes_per_fold", 5),
+        min_k=cfg_get(cfg, f"{prefix}_gap_min_k", 2),
+        max_k=cfg_get(cfg, f"{prefix}_gap_max_k", 50),
+        extra_after_selected=cfg_get(
+            cfg,
+            f"{prefix}_gap_plot_extra_k",
+            cfg_get(cfg, "propagated_label_gap_plot_extra_k", 5),
+        ),
+        show_progress=cfg_get(cfg, f"{prefix}_gap_progress", True),
+        progress_label=f"Gap curve {spec['label']} {dataset_name} seed={strat_seed}",
     )
 
 
@@ -82,8 +152,19 @@ def plot_gap_statistic_curve(
     save_figure=SAVE_FIGURE,
     output_dir=None,
     show=True,
+    property_name=None,
 ):
-    curve, selected_k = compute_curve_from_data(cfg, data, strat_seed, dataset_name)
+    property_name = clustered_property_name_from_cfg(cfg) if property_name is None else property_name
+    canonical_name = canonical_clustered_property_name(property_name)
+    spec = cluster_plot_config(canonical_name)
+    prefix = spec["prefix"]
+    curve, selected_k = compute_curve_from_data(
+        cfg,
+        data,
+        strat_seed,
+        dataset_name,
+        canonical_name,
+    )
     if not curve:
         raise ValueError("Cannot plot gap statistic curve because no k values were evaluated.")
 
@@ -154,11 +235,11 @@ def plot_gap_statistic_curve(
         ax.spines["right"].set_visible(False)
 
     fig.suptitle(
-        f"{dataset_name}: propagated-label gap statistic | "
+        f"{dataset_name}: {spec['title']} gap statistic | "
         f"{dataset_metric_summary(dataset_name, data)}\n"
-        f"hops={cfg_get(cfg, 'propagated_label_num_hops', 3)} | "
-        f"decay={cfg_get(cfg, 'propagated_label_decay', 0.5)} | "
-        f"reference runs={cfg_get(cfg, 'propagated_label_gap_reference_runs', 5)} | "
+        f"hops={cfg_get(cfg, f'{prefix}_num_hops', 3)} | "
+        f"decay={cfg_get(cfg, f'{prefix}_decay', 0.5)} | "
+        f"reference runs={cfg_get(cfg, f'{prefix}_gap_reference_runs', 5)} | "
         f"plotted k={int(k_values[0])}-{int(k_values[-1])} | "
         f"selected k={selected_k} | {criterion_text}",
         fontsize=14,
@@ -170,7 +251,7 @@ def plot_gap_statistic_curve(
             output_dir = OUTPUT_ROOT / dataset_suffix([dataset_name])
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"GapStatistic_{dataset_name}_k{selected_k}.png"
+        output_path = output_dir / f"{spec['gap_filename_prefix']}_{dataset_name}_k{selected_k}.png"
         fig.savefig(output_path, bbox_inches="tight")
         print(f"Saved figure to: {output_path}")
 
